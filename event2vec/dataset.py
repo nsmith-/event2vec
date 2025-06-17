@@ -1,11 +1,12 @@
 from abc import abstractmethod
+import dataclasses
 from typing import Self
 import equinox as eqx
 import jax
 import jax.scipy.stats as jstats
 import jax.numpy as jnp
 
-from event2vec.prior import ToyParameterPrior
+from event2vec.prior import ParameterPrior
 
 
 class Dataset(eqx.Module):
@@ -23,6 +24,22 @@ class Dataset(eqx.Module):
     def __len__(self) -> int:
         """Return the number of events in the dataset."""
         return self.observables.shape[0]
+
+    def split(self, fraction: float, key: jax.Array) -> tuple[Self, Self]:
+        """Split the dataset into two parts.
+
+        Args:
+            fraction (float): Fraction of the dataset to use for the first part.
+                The second part will contain the remaining fraction.
+            key (jnp.Array): Random key if needed for splitting.
+
+        NOTE: We assume the data is i.i.d. so we don't need to shuffle the data.
+        A subclass may override this if it needs to shuffle.
+        """
+        if not (0.0 < fraction < 1.0):
+            raise ValueError("Fraction must be between 0 and 1.")
+        split_index = int(len(self) * fraction)
+        return self[:split_index], self[split_index:]
 
     def iter_batch(self, batch_size: int, omit_last: bool = True):
         """Yield batches of data from the dataset.
@@ -81,7 +98,22 @@ COVARIANCES = jnp.array(
 """Covariance matrices of the multivariate normal distributions used in the toy model."""
 
 
-def _likelihood_one(observables: jax.Array, param: jax.Array) -> jax.Array:
+def _sample_event(param: jax.Array, *, key: jax.Array):
+    if param.shape[-1] != COVARIANCES.shape[0]:
+        raise ValueError(
+            f"Parameter vector ({param.shape[-1]}) must match number of distributions ({COVARIANCES.shape[0]})"
+        )
+    dist_key, norm_key = jax.random.split(key, 2)
+    selector = jax.random.categorical(dist_key, logits=jnp.log(param))
+
+    return jax.random.multivariate_normal(
+        norm_key,
+        mean=MEAN,
+        cov=COVARIANCES[selector, ...],
+    )
+
+
+def _likelihood_event(observables: jax.Array, param: jax.Array) -> jax.Array:
     pdf_component = jstats.multivariate_normal.pdf(
         observables, mean=MEAN, cov=COVARIANCES
     )
@@ -90,80 +122,24 @@ def _likelihood_one(observables: jax.Array, param: jax.Array) -> jax.Array:
 
 class ToyDataset(ReweightableDataset):
     def likelihood(self, param: jax.Array) -> jax.Array:
-        return jax.vmap(_likelihood_one)(self.observables, param)
+        return jax.vmap(_likelihood_event)(self.observables, param)
 
 
-class ToyDatasetFactory(eqx.Module):
-    pass
+@dataclasses.dataclass
+class ToyDatasetFactory:
+    """Factory for creating a toy dataset."""
 
+    len: int
+    """Number of events in the dataset."""
+    param_prior: ParameterPrior
+    """Prior distribution for the parameters of the dataset."""
 
-def sample_event(param: jax.Array, *, key: jax.Array):
-    if param.shape[-1] != COVARIANCES.shape[0]:
-        raise ValueError(
-            f"Parameter vector ({param.shape[-1]}) must match number of distributions ({COVARIANCES.shape[0]})"
+    def __call__(self, *, key: jax.Array) -> ToyDataset:
+        param_key, event_key = jax.random.split(key)
+        param = jax.vmap(self.param_prior.sample)(
+            key=jax.random.split(param_key, self.len)
         )
-    dist_key, norm_key = jax.random.split(key, 2)
-    selector = jax.random.categorical(dist_key, logits=jnp.log(param))
-
-    event = jax.random.multivariate_normal(
-        norm_key,
-        mean=MEAN,
-        cov=COVARIANCES[selector, ...],
-    )
-
-    return event
-
-
-def true_llr_function(events: ToyDataset, param_0: jax.Array, param_1: jax.Array):
-    return jnp.log(events.likelihood(param_1)) - jnp.log(events.likelihood(param_0))
-
-
-def get_data(
-    *,
-    dataset_size: int = 100_000,
-    validation_fraction: float = 0.15,
-    key: jax.Array,
-):
-    param_key, split_key, event_key = jax.random.split(key, 3)
-    param_0 = jnp.full(shape=(dataset_size, 3), fill_value=jnp.array([1.0, 0.0, 0.0]))
-    prior = ToyParameterPrior(alpha=jnp.array([9.0, 3.0, 3.0]))
-    param_1 = jax.vmap(prior.sample)(key=jax.random.split(param_key, dataset_size))
-
-    label = jax.random.randint(split_key, shape=(dataset_size,), minval=0, maxval=2)
-    param = jnp.where(
-        (label == 0)[:, None],
-        param_0,
-        param_1,
-    )
-
-    event = jax.vmap(sample_event)(param, key=jax.random.split(event_key, dataset_size))
-
-    N_train = dataset_size - int(dataset_size * validation_fraction)
-    data = ToyDataset(observables=event, gen_parameters=param)
-    data_train = data[:N_train]
-    data_validation = data[N_train:]
-    return data_train, data_validation
-
-
-if __name__ == "__main__":
-    data_train, data_validation = get_data(
-        dataset_size=1000,
-        validation_fraction=0.15,
-        key=jax.random.PRNGKey(42),
-    )
-    print("Training Data:", data_train)
-    print("Validation Data:", data_validation)
-
-    llr, score = jax.vmap(
-        jax.value_and_grad(true_llr_function, argnums=1),
-        in_axes=(0, 0, None),
-    )(
-        data_train,
-        data_train.gen_parameters,
-        jnp.array([1.0, 0.0, 0.0]),
-    )
-
-    print(f"True LLR: {llr[:5]}")
-    print("True Scores:")
-    print(f"along a1: {score[:5, 1]}")
-    print(f"along a2: {score[:5, 2]}")
+        event = jax.vmap(_sample_event)(
+            param, key=jax.random.split(event_key, self.len)
+        )
+        return ToyDataset(observables=event, gen_parameters=param)
