@@ -1,12 +1,7 @@
 from abc import abstractmethod
-import dataclasses
 from typing import Self
 import equinox as eqx
 import jax
-import jax.scipy.stats as jstats
-import jax.numpy as jnp
-
-from event2vec.prior import ParameterPrior
 
 
 class Dataset(eqx.Module):
@@ -65,7 +60,10 @@ class DatasetWithLikelihood(Dataset):
 
     @abstractmethod
     def likelihood(self, param: jax.Array) -> jax.Array:
-        """Compute the likelihood of the dataset w.r.t. the given parameter vector."""
+        """Compute the likelihood of the dataset w.r.t. the given parameter vector.
+
+        This may be defined only up to a multiplicative constant
+        """
         msg = (
             "This method should be implemented by subclasses of DatasetWithLikelihood."
         )
@@ -80,66 +78,8 @@ class ReweightableDataset(DatasetWithLikelihood):
 
     def weight(self, param: jax.Array) -> jax.Array:
         """Compute the weight of the dataset w.r.t. the given parameter vector."""
-        # TODO: any way to catch denom==0?
+        # denom shouldn't be zero by construction, since the event was sampled
+        # from the distribution defined by gen_parameters
         denom = self.likelihood(self.gen_parameters)
         num = self.likelihood(param)
         return num / denom
-
-
-MEAN = jnp.array([0.0, 0.0])
-"""Mean of the multivariate normal distributions used in the toy model. (all the same)"""
-COVARIANCES = jnp.array(
-    [
-        [[1.0, 0.0], [0.0, 1.0]],  # Default
-        [[4.0, 0.0], [0.0, 0.5]],  # Option 0
-        [[0.5, 0.0], [0.0, 4.0]],  # Option 1
-    ]
-)
-"""Covariance matrices of the multivariate normal distributions used in the toy model."""
-
-
-def _sample_event(param: jax.Array, *, key: jax.Array):
-    if param.shape[-1] != COVARIANCES.shape[0]:
-        raise ValueError(
-            f"Parameter vector ({param.shape[-1]}) must match number of distributions ({COVARIANCES.shape[0]})"
-        )
-    dist_key, norm_key = jax.random.split(key, 2)
-    selector = jax.random.categorical(dist_key, logits=jnp.log(param))
-
-    return jax.random.multivariate_normal(
-        norm_key,
-        mean=MEAN,
-        cov=COVARIANCES[selector, ...],
-    )
-
-
-def _likelihood_event(observables: jax.Array, param: jax.Array) -> jax.Array:
-    pdf_component = jstats.multivariate_normal.pdf(
-        observables, mean=MEAN, cov=COVARIANCES
-    )
-    return pdf_component @ param
-
-
-class ToyDataset(ReweightableDataset):
-    def likelihood(self, param: jax.Array) -> jax.Array:
-        return jax.vmap(_likelihood_event)(self.observables, param)
-
-
-@dataclasses.dataclass
-class ToyDatasetFactory:
-    """Factory for creating a toy dataset."""
-
-    len: int
-    """Number of events in the dataset."""
-    param_prior: ParameterPrior
-    """Prior distribution for the parameters of the dataset."""
-
-    def __call__(self, *, key: jax.Array) -> ToyDataset:
-        param_key, event_key = jax.random.split(key)
-        param = jax.vmap(self.param_prior.sample)(
-            key=jax.random.split(param_key, self.len)
-        )
-        event = jax.vmap(_sample_event)(
-            param, key=jax.random.split(event_key, self.len)
-        )
-        return ToyDataset(observables=event, gen_parameters=param)

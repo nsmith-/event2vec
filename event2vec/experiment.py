@@ -1,15 +1,30 @@
+from typing import Protocol
+
 import jax
 import jax.numpy as jnp
 
-from event2vec.dataset import ToyDatasetFactory
-from event2vec.model import E2VMLPConfig
-from event2vec.prior import ToyParameterPrior
+from event2vec.dataset import ReweightableDataset
+from event2vec.datasets import GaussMixtureDatasetFactory
+from event2vec.model import E2VMLPConfig, LearnedLLR
+from event2vec.prior import DirichletParameterPrior
 from event2vec.training import TrainingConfig
 
 
+class DatasetFactory(Protocol):
+    def __call__(self, *, key: jax.Array) -> ReweightableDataset:
+        """Create a dataset given a random key."""
+        ...
+
+
+class ModelBuilder(Protocol):
+    def build(self, *, key: jax.Array) -> LearnedLLR:
+        """Build a model given a random key."""
+        ...
+
+
 def run_experiment(
-    data_factory: ToyDatasetFactory,
-    model_config: E2VMLPConfig,
+    data_factory: DatasetFactory,
+    model_config: ModelBuilder,
     train_config: TrainingConfig,
     *,
     key: jax.Array,
@@ -28,9 +43,9 @@ def run_experiment(
 if __name__ == "__main__":
     key = jax.random.PRNGKey(42)
 
-    gen_param_prior = ToyParameterPrior(alpha=jnp.array([9.0, 3.0, 3.0]))
+    gen_param_prior = DirichletParameterPrior(alpha=jnp.array([9.0, 3.0, 3.0]))
     train_param_prior = gen_param_prior
-    data_factory = ToyDatasetFactory(
+    data_factory = GaussMixtureDatasetFactory(
         len=100_000,
         param_prior=gen_param_prior,
     )

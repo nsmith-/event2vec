@@ -1,4 +1,5 @@
 from abc import abstractmethod
+
 import equinox as eqx
 import jax
 
@@ -16,7 +17,7 @@ class ParameterPrior(eqx.Module):
         raise NotImplementedError("This method should be implemented by subclasses.")
 
 
-class ToyParameterPrior(ParameterPrior):
+class DirichletParameterPrior(ParameterPrior):
     """A simple prior for the parameters of the toy model.
     This prior is a Dirichlet distribution with fixed alpha parameters.
     """
@@ -25,3 +26,15 @@ class ToyParameterPrior(ParameterPrior):
 
     def sample(self, key: jax.Array) -> jax.Array:
         return jax.random.dirichlet(key, alpha=self.alpha)
+
+
+class NormalParameterPrior(ParameterPrior):
+    """A simple prior for parameter
+    This prior is a Normal distribution with fixed mean and standard deviation.
+    """
+
+    mean: jax.Array
+    cov: jax.Array
+
+    def sample(self, key: jax.Array) -> jax.Array:
+        return jax.random.multivariate_normal(key, mean=self.mean, cov=self.cov)
