@@ -77,7 +77,10 @@ class ReweightableDataset(DatasetWithLikelihood):
     """The parameters used to sample this event"""
 
     def weight(self, param: jax.Array) -> jax.Array:
-        """Compute the weight of the dataset w.r.t. the given parameter vector."""
+        """Compute the weight of the dataset w.r.t. the given parameter vector.
+
+        This is the likelihood ratio for the parameter point with respect to the generated point
+        """
         # denom shouldn't be zero by construction, since the event was sampled
         # from the distribution defined by gen_parameters
         denom = self.likelihood(self.gen_parameters)

@@ -35,6 +35,7 @@ def _lightjets_mask(pid: ak.Array) -> ak.Array:
 class DY1JDataset(ReweightableDataset):
     latent_data: jax.Array
     """The reweight basis"""
+    # TODO: norm behavior: pre-compute, compute-per-batch (current impl.), or ignore norm
 
     @classmethod
     def from_lhe(cls, path: str):
@@ -51,6 +52,7 @@ class DY1JDataset(ReweightableDataset):
                     _lightjets_mask(events.particles[:, i].id),
                 ]
             )
+        # TODO: add m_ll
         observables = jnp.array(ak.concatenate([i[:, None] for i in items], axis=-1))
         latent_data = jnp.array(
             ak.concatenate(
