@@ -12,6 +12,10 @@ class LearnedLLR(eqx.Module):
     ) -> jax.Array:
         raise NotImplementedError()
 
+    def elementwise_loss_filter(self, loss: jax.Array) -> jax.Array:
+        """An optional filter for the loss values if the model requires it for training"""
+        return loss
+
 
 class E2VMLP(LearnedLLR):
     """Event2Vec MLP model for learning log-likelihood ratios."""
