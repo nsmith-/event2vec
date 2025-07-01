@@ -5,9 +5,10 @@ import jax
 import optax
 import rich.progress
 
-from event2vec.dataset import ReweightableDataset
-from event2vec.loss import Loss
-from event2vec.model import LearnedLLR
+from .dataset import ReweightableDataset
+from .loss import Loss
+from .model import LearnedLLR
+from .prior import JointParameterPrior
 
 
 @dataclasses.dataclass

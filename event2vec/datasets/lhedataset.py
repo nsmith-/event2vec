@@ -4,7 +4,7 @@ import jax.numpy as jnp
 import numpy as np
 import pylhe
 
-from event2vec.dataset import ReweightableDataset
+from ..dataset import ReweightableDataset
 
 
 def _to_awkward(path: str) -> ak.Array:
@@ -72,6 +72,7 @@ class DY1JDataset(ReweightableDataset):
         )
 
     def likelihood(self, param: jax.Array) -> jax.Array:
-        norm = 1.0 + param @ self.latent_data.mean(axis=0)
+        # norm = 1.0 + param @ self.latent_data.mean(axis=0)
         weights = 1.0 + jnp.vecdot(self.latent_data, param)
-        return jnp.maximum(weights / norm, jnp.finfo(jnp.float32).eps)
+        # return jnp.maximum(weights / norm, jnp.finfo(jnp.float32).eps)
+        return weights

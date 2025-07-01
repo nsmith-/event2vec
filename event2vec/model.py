@@ -1,33 +1,52 @@
+from typing import Protocol
 from abc import abstractmethod
 import dataclasses
 
 import equinox as eqx
 import jax
 
+class ConstituentModel(Protocol):
+    def __call__(self, *args, **kwargs) -> jax.Array:
+        ...
 
 class LearnedLLR(eqx.Module):
     @abstractmethod
-    def log_likelihood_ratio(
+    def llr_pred(
         self, observables: jax.Array, param_0: jax.Array, param_1: jax.Array
     ) -> jax.Array:
-        raise NotImplementedError()
+        raise NotImplementedError
+    
+    @abstractmethod
+    def llr_prob(
+        self, observables: jax.Array, param_0: jax.Array, param_1: jax.Array
+    ) -> jax.Array | None:
+        raise NotImplementedError
 
-    def elementwise_loss_filter(self, loss: jax.Array) -> jax.Array:
-        """An optional filter for the loss values if the model requires it for training"""
-        return loss
-
-
-class E2VMLP(LearnedLLR):
-    """Event2Vec MLP model for learning log-likelihood ratios."""
-
-    event_summary: eqx.nn.MLP
-    param_map: eqx.nn.MLP
-
-    def log_likelihood_ratio(self, observables, param_0, param_1):
-        summary = self.event_summary(observables)
-        projection = self.param_map(param_1) - self.param_map(param_0)
+class RegularVector_LearnedLLR(LearnedLLR):
+    event_summary_model: ConstituentModel
+    param_projection_model: ConstituentModel
+    
+    def llr_pred(self, observables, param_0, param_1):
+        summary =  self.event_summary_model(observables)
+        projection = (
+            self.param_projection_model(param_1)
+            - self.param_projection_model(param_0)
+        )
+        
         return summary @ projection
+    
+    def llr_prob(self, observables, param_0, param_1):
+        return None
 
+class ProbOneHotConstMag_LearnedLLR(LearnedLLR):
+    binwise_ll_model: ConstituentModel
+    bin_prob_model: ConstituentModel
+    
+    def llr_pred(self, observables, param_0, param_1):
+        return self.binwise_ll_model(param_1) - self.binwise_ll_model(param_0)
+    
+    def llr_prob(self, observables, param_0, param_1):
+        return self.bin_prob_model(observables)
 
 @dataclasses.dataclass
 class E2VMLPConfig:
@@ -63,4 +82,7 @@ class E2VMLPConfig:
             activation=jax.nn.leaky_relu,
             key=key2,
         )
-        return E2VMLP(event_summary, param_map)
+        return RegularVector_LearnedLLR(
+            event_summary_model=event_summary,
+            param_projection_model=param_map
+        )
