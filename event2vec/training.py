@@ -6,7 +6,7 @@ import optax
 import rich.progress
 
 from event2vec.dataset import ReweightableDataset
-from event2vec.loss import Loss
+from event2vec.loss import BinaryClassLoss
 from event2vec.model import LearnedLLR
 
 
@@ -22,7 +22,7 @@ class TrainingConfig:
     """Learning rate for the optimizer."""
     epochs: int
     """Number of epochs to train for."""
-    loss_fn: Loss
+    loss_fn: BinaryClassLoss
     """Loss function to use for training."""
 
     def train(self, model: LearnedLLR, data: ReweightableDataset, key: jax.Array):

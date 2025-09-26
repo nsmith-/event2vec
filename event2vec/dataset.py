@@ -7,14 +7,22 @@ import jax
 class Dataset(eqx.Module):
     """Abstract dataset
 
-    The leading dimension of all member arrays is assumed to be the event index.
+    For any arrays where the leading dimension matches the length of observables (i.e. number of events),
+    these will be treated as batchable arrays and will be indexed when the dataset is indexed.
     """
 
     observables: jax.Array
     """Observables of the dataset, e.g. event kinematics, etc."""
 
     def __getitem__(self, key) -> Self:
-        return jax.tree_util.tree_map(lambda x: x[key], self)
+        batchable, nonbatchable = eqx.partition(
+            self,
+            lambda leaf: isinstance(leaf, jax.Array)
+            and leaf.ndim > 0
+            and leaf.shape[0] == len(self),
+        )
+        applied = jax.tree_util.tree_map(lambda x: x[key], batchable)
+        return eqx.combine(applied, nonbatchable)
 
     def __len__(self) -> int:
         """Return the number of events in the dataset."""

@@ -6,8 +6,9 @@ import jax.numpy as jnp
 from event2vec.dataset import ReweightableDataset
 from event2vec.datasets import GaussMixtureDatasetFactory
 from event2vec.model import E2VMLPConfig, LearnedLLR
-from event2vec.prior import DirichletParameterPrior
+from event2vec.prior import DirichletParameterPrior, UncorrelatedJointPrior
 from event2vec.training import TrainingConfig
+from event2vec.loss import BCELoss
 
 
 class DatasetFactory(Protocol):
@@ -61,7 +62,6 @@ if __name__ == "__main__":
         batch_size=128,
         learning_rate=0.005,
         epochs=50,
-        param_prior=train_param_prior,
-        loss_fn="mse",
+        loss_fn=BCELoss(UncorrelatedJointPrior(gen_param_prior)),
     )
     run_experiment(data_factory, model_config, train_config, key=key)
