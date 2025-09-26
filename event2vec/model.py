@@ -1,9 +1,10 @@
-from typing import Protocol
-from abc import abstractmethod
 import dataclasses
+from abc import abstractmethod
+from typing import Protocol
 
 import equinox as eqx
 import jax
+import jax.numpy as jnp
 
 
 class ConstituentModel(Protocol):
@@ -35,6 +36,23 @@ class RegularVector_LearnedLLR(LearnedLLR):
         )
 
         return summary @ projection
+
+    def llr_prob(self, observables, param_0, param_1):
+        return None
+
+
+class MadMiner_LearnedLLR(LearnedLLR):
+    model: ConstituentModel
+    biasModel: ConstituentModel
+
+    def llr_pred(self, observables, param_0, param_1):
+        log_num = jnp.log(
+            self.model(observables) @ param_1 + self.biasModel(observables)
+        )
+        log_den = jnp.log(
+            self.model(observables) @ param_0 + self.biasModel(observables)
+        )
+        return log_num - log_den
 
     def llr_prob(self, observables, param_0, param_1):
         return None
