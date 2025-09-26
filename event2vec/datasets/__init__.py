@@ -1,8 +1,8 @@
-from .gaussmixture import (
+from event2vec.datasets.gaussmixture import (
     GaussMixtureDataset,
     GaussMixtureDatasetFactory,
 )
-from .lhedataset import DY1JDataset
+from event2vec.datasets.lhedataset import DY1JDataset
 
 __all__ = [
     "GaussMixtureDataset",
