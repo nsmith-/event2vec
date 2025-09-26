@@ -2,24 +2,29 @@ from abc import abstractmethod
 import jax
 import equinox as eqx
 import optax
+import jax.numpy as jnp
 
 from event2vec.dataset import ReweightableDataset
 from event2vec.model import LearnedLLR
 from event2vec.prior import JointParameterPrior
 
 
-class Loss(eqx.Module):
+class BinaryClassLoss(eqx.Module):
     """Abstract class for loss functions."""
 
     parameter_prior: JointParameterPrior
+    """The prior over parameters to sample from during training."""
+    continuous_labels: bool = False
+    """Whether to use continuous labels (i.e. regression) instead of binary labels (i.e. classification)."""
 
     def __call__(
         self, model: LearnedLLR, data: ReweightableDataset, *, key: jax.Array
     ) -> jax.Array:
         """Compute the loss, sampling parameters from the prior."""
+        prior_sample_key, label_key = jax.random.split(key, 2)
         param_0, param_1 = jax.vmap(self.parameter_prior.sample)(
-            key=jax.random.split(key, len(data))
-        )  # shapes: (batch, 1)
+            key=jax.random.split(prior_sample_key, len(data))
+        )  # shapes: (batch, NParameters)
 
         llr_pred = jax.vmap(model.llr_pred)(
             data.observables, param_0, param_1
@@ -32,8 +37,12 @@ class Loss(eqx.Module):
         weight_param_0 = data.weight(param_0)  # shape: (batch, 1)
         weight_param_1 = data.weight(param_1)  # shape: (batch, 1)
 
-        sample_weight = (weight_param_0 + weight_param_1) / 2
-        target_label = weight_param_1 / (weight_param_0 + weight_param_1)
+        if self.continuous_labels:
+            sample_weight = (weight_param_0 + weight_param_1) / 2
+            target_label = weight_param_1 / (weight_param_0 + weight_param_1)
+        else:
+            target_label = jax.random.bernoulli(label_key, p=0.5, shape=(len(data),))
+            sample_weight = jnp.where(target_label == 0, weight_param_0, weight_param_1)
 
         loss = self._elementwise_loss(llr_pred, target_label)
 
@@ -53,13 +62,13 @@ class Loss(eqx.Module):
         raise NotImplementedError("This method should be implemented by subclasses.")
 
 
-class BCELoss(Loss):
+class BCELoss(BinaryClassLoss):
     def _elementwise_loss(self, llr_pred, target_label):
         return optax.losses.sigmoid_binary_cross_entropy(
             logits=llr_pred, labels=target_label
         )
 
 
-class MSELoss(Loss):
+class MSELoss(BinaryClassLoss):
     def _elementwise_loss(self, llr_pred, target_label):
         return (jax.nn.sigmoid(llr_pred) - target_label) ** 2
