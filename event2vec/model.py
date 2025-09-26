@@ -5,9 +5,10 @@ import dataclasses
 import equinox as eqx
 import jax
 
+
 class ConstituentModel(Protocol):
-    def __call__(self, *args, **kwargs) -> jax.Array:
-        ...
+    def __call__(self, *args, **kwargs) -> jax.Array: ...
+
 
 class LearnedLLR(eqx.Module):
     @abstractmethod
@@ -15,38 +16,40 @@ class LearnedLLR(eqx.Module):
         self, observables: jax.Array, param_0: jax.Array, param_1: jax.Array
     ) -> jax.Array:
         raise NotImplementedError
-    
+
     @abstractmethod
     def llr_prob(
         self, observables: jax.Array, param_0: jax.Array, param_1: jax.Array
     ) -> jax.Array | None:
         raise NotImplementedError
 
+
 class RegularVector_LearnedLLR(LearnedLLR):
     event_summary_model: ConstituentModel
     param_projection_model: ConstituentModel
-    
+
     def llr_pred(self, observables, param_0, param_1):
-        summary =  self.event_summary_model(observables)
-        projection = (
-            self.param_projection_model(param_1)
-            - self.param_projection_model(param_0)
+        summary = self.event_summary_model(observables)
+        projection = self.param_projection_model(param_1) - self.param_projection_model(
+            param_0
         )
-        
+
         return summary @ projection
-    
+
     def llr_prob(self, observables, param_0, param_1):
         return None
+
 
 class ProbOneHotConstMag_LearnedLLR(LearnedLLR):
     binwise_ll_model: ConstituentModel
     bin_prob_model: ConstituentModel
-    
+
     def llr_pred(self, observables, param_0, param_1):
         return self.binwise_ll_model(param_1) - self.binwise_ll_model(param_0)
-    
+
     def llr_prob(self, observables, param_0, param_1):
         return self.bin_prob_model(observables)
+
 
 @dataclasses.dataclass
 class E2VMLPConfig:
@@ -83,6 +86,5 @@ class E2VMLPConfig:
             key=key2,
         )
         return RegularVector_LearnedLLR(
-            event_summary_model=event_summary,
-            param_projection_model=param_map
+            event_summary_model=event_summary, param_projection_model=param_map
         )
