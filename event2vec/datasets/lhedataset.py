@@ -4,7 +4,7 @@ import jax.numpy as jnp
 import numpy as np
 import pylhe
 
-from ..dataset import ReweightableDataset
+from event2vec.dataset import ReweightableDataset
 
 
 def _to_awkward(path: str) -> ak.Array:

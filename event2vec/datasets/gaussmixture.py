@@ -4,8 +4,8 @@ import jax
 import jax.numpy as jnp
 import jax.scipy.stats as jstats
 
-from ..dataset import ReweightableDataset
-from ..prior import ParameterPrior
+from event2vec.dataset import ReweightableDataset
+from event2vec.prior import ParameterPrior
 
 MEAN = jnp.array([0.0, 0.0])
 """Mean of the multivariate normal distributions used in the toy model. (all the same)"""

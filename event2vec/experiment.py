@@ -3,12 +3,12 @@ from typing import Protocol
 import jax
 import jax.numpy as jnp
 
-from .dataset import ReweightableDataset
-from .datasets import GaussMixtureDatasetFactory
-from .model import E2VMLPConfig, LearnedLLR
-from .prior import DirichletParameterPrior, UncorrelatedJointPrior
-from .training import TrainingConfig
-from .loss import MSELoss, BCELoss
+from event2vec.dataset import ReweightableDataset
+from event2vec.datasets import GaussMixtureDatasetFactory
+from event2vec.model import E2VMLPConfig, LearnedLLR
+from event2vec.prior import DirichletParameterPrior, UncorrelatedJointPrior
+from event2vec.training import TrainingConfig
+from event2vec.loss import BCELoss
 
 
 class DatasetFactory(Protocol):

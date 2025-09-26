@@ -1,12 +1,11 @@
 from abc import abstractmethod
 import jax
 import equinox as eqx
-import jax.numpy as jnp
 import optax
 
-from .dataset import ReweightableDataset
-from .model import LearnedLLR
-from .prior import JointParameterPrior
+from event2vec.dataset import ReweightableDataset
+from event2vec.model import LearnedLLR
+from event2vec.prior import JointParameterPrior
 
 
 class Loss(eqx.Module):
