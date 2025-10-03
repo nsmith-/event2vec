@@ -1,3 +1,4 @@
+import glob
 import awkward as ak
 import jax
 import jax.numpy as jnp
@@ -9,6 +10,8 @@ from event2vec.dataset import ReweightableDataset
 
 def _to_awkward(path: str) -> ak.Array:
     """Convert an LHE file to an awkward array."""
+    if "*" in path:
+        return ak.concatenate([_to_awkward(p) for p in glob.glob(path)])
     # workaround for pylhe.to_awkward not supporting weights
     event = next(pylhe.read_lhe_with_attributes(path))
     events = pylhe.to_awkward(pylhe.read_lhe_with_attributes(path))
@@ -33,9 +36,7 @@ def _lightjets_mask(pid: ak.Array) -> ak.Array:
 
 
 class DY1JDataset(ReweightableDataset):
-    """A dataset for the Drell-Yan + 1 jet process.
-
-    """
+    """A dataset for the Drell-Yan + 1 jet process."""
 
     latent_data: jax.Array
     """The reweight basis"""
@@ -102,6 +103,107 @@ class DY1JDataset(ReweightableDataset):
         if self.extended_likelihood:
             return jnp.maximum(weights, jnp.finfo(jnp.float32).eps)
         norm = 1.0 + param @ self.latent_norm
+        # return weights / norm
+        # Avoid case where log(0) is called
+        return jnp.maximum(weights / norm, jnp.finfo(jnp.float32).eps)
+
+
+def _decode_weight_name(name: str, expected_wcs: list[str]) -> list[float]:
+    coefs = [0.0 for _ in expected_wcs]
+    coefs[expected_wcs.index("cSM")] = 1.0
+    if name == "SM":
+        return coefs
+    parts = name.split("_")
+    for wc, val in zip(parts[0::2], parts[1::2]):
+        idx = expected_wcs.index(wc)
+        coefs[idx] = float(val.replace("m", "-").replace("p", "."))
+    return coefs
+
+
+def _quad(vec):
+    outer = vec[..., None, :] * vec[..., None]
+    iu = jnp.tril_indices(vec.shape[-1])
+    return outer[..., iu[0], iu[1]]
+
+
+def _extract_scaling_coefficients(event_weights: ak.Array, expected_wcs: list[str]):
+    """Extract the scaling coefficients from the event weights.
+
+    The coefficients are extracted by solving a linear system of equations.
+    """
+    weight_names = list(event_weights.fields)
+    nwcs = len(expected_wcs)
+    nquad = (nwcs + 1) * (nwcs + 2) // 2
+    print(f"Number of WCs: {nwcs}, number of quadratic terms: {nquad}")
+    points = np.array(
+        [_decode_weight_name(name, expected_wcs) for name in weight_names]
+    )
+    print(points.shape)
+    points_quad = np.array([_quad(p) for p in points])
+    print(points_quad.shape)
+    weights = jnp.array([event_weights[name] for name in weight_names])
+    print(weights.shape)
+    coeffs, *_ = jnp.linalg.lstsq(points_quad, weights, rcond=None)
+    return coeffs.T
+
+
+class VBFHDataset(ReweightableDataset):
+    """A dataset for a VBF Higgs process
+
+    The Higgs is not decayed in this dataset.
+    """
+
+    latent_data: jax.Array
+    """The reweight basis"""
+    latent_norm: jax.Array
+    """The normalization of the events"""
+    extended_likelihood: bool = False
+    """Whether to use the extended likelihood (i.e. include the overall normalization shift in the weight)"""
+
+    @classmethod
+    def from_lhe(
+        cls,
+        path: str,
+        extended_likelihood: bool = False,
+    ):
+        """Load a dataset from an LHE file."""
+        events = _to_awkward(path)
+        items = []
+        for i in (2, 3, 4):
+            # Skip the first two particles (beam particles)
+            items.extend(
+                [
+                    events.particles[:, i].vector.pt,
+                    events.particles[:, i].vector.eta,
+                    events.particles[:, i].vector.phi,
+                    _lightjets_mask(events.particles[:, i].id),
+                ]
+            )
+        assert ak.all(abs(events.particles.id[:, -2:]) < 6)
+        leading_pt = ak.max(events.particles.vector.pt[:, -2:], axis=1)
+        j1, j2 = events.particles.vector[:, -2], events.particles.vector[:, -1]
+        dphijj = abs(j1.deltaphi(j2))
+        mjj = (j1 + j2).mass
+        items.extend([leading_pt, mjj, dphijj])
+        observables = jnp.array(ak.concatenate([i[:, None] for i in items], axis=-1))
+        latent_data = _extract_scaling_coefficients(
+            events.weights, expected_wcs=["cSM", "cHbox", "cHDD", "cHW", "cHB", "cHWB"]
+        )
+        starting_point = jnp.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        latent_norm = jnp.mean(latent_data, axis=0)
+        return cls(
+            observables=observables,
+            gen_parameters=starting_point,
+            latent_data=latent_data,
+            latent_norm=latent_norm,
+            extended_likelihood=extended_likelihood,
+        )
+
+    def likelihood(self, param: jax.Array) -> jax.Array:
+        weights = jnp.vecdot(self.latent_data, _quad(param))
+        if self.extended_likelihood:
+            return jnp.maximum(weights, jnp.finfo(jnp.float32).eps)
+        norm = _quad(param) @ self.latent_norm
         # return weights / norm
         # Avoid case where log(0) is called
         return jnp.maximum(weights / norm, jnp.finfo(jnp.float32).eps)
