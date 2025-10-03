@@ -35,7 +35,6 @@ def _lightjets_mask(pid: ak.Array) -> ak.Array:
 class DY1JDataset(ReweightableDataset):
     """A dataset for the Drell-Yan + 1 jet process.
 
-    Created using
     """
 
     latent_data: jax.Array
