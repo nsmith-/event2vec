@@ -66,6 +66,18 @@ class DatasetWithLikelihood(Dataset):
     are assumed to be from the joint distribution of the observables and the latent variables.
     """
 
+    @property
+    @abstractmethod
+    def observable_dim(self) -> int:
+        """Dimensionality of the observables."""
+        raise NotImplementedError("This property should be implemented by subclasses.")
+
+    @property
+    @abstractmethod
+    def parameter_dim(self) -> int:
+        """Dimensionality of the parameters."""
+        raise NotImplementedError("This property should be implemented by subclasses.")
+
     @abstractmethod
     def likelihood(self, param: jax.Array) -> jax.Array:
         """Compute the likelihood of the dataset w.r.t. the given parameter vector.

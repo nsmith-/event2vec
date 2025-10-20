@@ -2,6 +2,7 @@ from abc import abstractmethod
 
 import equinox as eqx
 import jax
+import jax.numpy as jnp
 
 
 class ParameterPrior(eqx.Module):
@@ -50,6 +51,22 @@ class NormalParameterPrior(ParameterPrior):
 
     def sample(self, key: jax.Array) -> jax.Array:
         return jax.random.multivariate_normal(key, mean=self.mean, cov=self.cov)
+
+
+class SMPlusNormalParameterPrior(ParameterPrior):
+    """A prior that fixes the first parameter (the SM parameter) to 1 and samples the rest from a Normal distribution."""
+
+    mean: jax.Array
+    "means for all parameters except the first"
+    cov: jax.Array
+    "covariance for all parameters except the first"
+
+    def sample(self, key: jax.Array) -> jax.Array:
+        return (
+            jnp.ones(shape=(len(self.mean) + 1,))
+            .at[1:]
+            .set(jax.random.multivariate_normal(key, mean=self.mean, cov=self.cov))
+        )
 
 
 class UncorrelatedJointPrior(JointParameterPrior):

@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "event2vec"
+authors = [
+  { name = "Prasanth Shyamsundar", email = "prasanth@fnal.gov" },
+  { name = "Nick Smith", email = "nick.smith@cern.ch" },
+]
+description = "event2vec: Learning Event Representations for Effective Field Theories"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering",
+]
+dynamic = ["version"]
+# TODO: relax version constraints and use uv.lock lockfile for reproducible installs
+dependencies = ["equinox==0.12.2",
+               "jax==0.6.1",
+               "matplotlib==3.10.3",
+               "numpy==2.3.0",
+               "optax==0.2.5",
+               "rich==14.0.0",
+               "ipywidgets==8.1.7",
+               "pylhe==0.9.1",
+               "awkward==2.8.4"]
+
+[project.optional-dependencies]
+test = [
+  "pytest >=6",
+]
+
+[project.urls]
+Homepage = "https://github.com/nsmith-/event2vec"
+"Bug Tracker" = "https://github.com/nsmith-/event2vec/issues"
+Changelog = "https://github.com/nsmith-/event2vec/releases"
+
+
+[tool.hatch]
+version.source = "vcs"
+build.hooks.vcs.version-file = "src/event2vec/_version.py"
+
+[tool.hatch.envs.default]
+features = ["test"]
+scripts.test = "pytest {args}"
+

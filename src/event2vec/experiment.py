@@ -1,4 +1,4 @@
-from typing import Protocol
+from typing import Protocol, TypeVar
 
 import jax
 import jax.numpy as jnp
@@ -10,26 +10,33 @@ from event2vec.prior import DirichletParameterPrior, UncorrelatedJointPrior
 from event2vec.training import TrainingConfig
 from event2vec.loss import BCELoss
 
+DatasetT = TypeVar("DatasetT", bound=ReweightableDataset, covariant=True)
+ModelT = TypeVar("ModelT", bound=LearnedLLR, covariant=True)
 
-class DatasetFactory(Protocol):
-    def __call__(self, *, key: jax.Array) -> ReweightableDataset:
+
+class DatasetFactory(Protocol[DatasetT]):
+    def __call__(self, *, key: jax.Array) -> DatasetT:
         """Create a dataset given a random key."""
         ...
 
 
-class ModelBuilder(Protocol):
-    def build(self, *, key: jax.Array) -> LearnedLLR:
-        """Build a model given a random key."""
+class ModelBuilder(Protocol[ModelT]):
+    def build(self, *, key: jax.Array) -> ModelT:
+        """Build a model given a random key.
+
+        TODO: require a dataset passed in, so that the observables and parameters can be inferred from the dataset.
+        Also so that we can apply standard scaling to the observables based on the dataset statistics.
+        """
         ...
 
 
 def run_experiment(
-    data_factory: DatasetFactory,
-    model_config: ModelBuilder,
+    data_factory: DatasetFactory[DatasetT],
+    model_config: ModelBuilder[ModelT],
     train_config: TrainingConfig,
     *,
     key: jax.Array,
-):
+) -> tuple[ModelT, DatasetT, list[float], list[float]]:
     data_key, model_key, train_key = jax.random.split(key, 3)
     data = data_factory(key=data_key)
     model = model_config.build(key=model_key)

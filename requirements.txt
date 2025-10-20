@@ -1,9 +1,0 @@
-equinox==0.12.2
-jax==0.6.1
-matplotlib==3.10.3
-numpy==2.3.0
-optax==0.2.5
-rich==14.0.0
-ipywidgets==8.1.7
-pylhe==0.9.1
-awkward==2.8.4

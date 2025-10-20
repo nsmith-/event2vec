@@ -6,6 +6,7 @@ import numpy as np
 import pylhe
 
 from event2vec.dataset import ReweightableDataset
+from event2vec.util import EPS, tril_outer_product
 
 
 def _to_awkward(path: str) -> ak.Array:
@@ -36,7 +37,11 @@ def _lightjets_mask(pid: ak.Array) -> ak.Array:
 
 
 class DY1JDataset(ReweightableDataset):
-    """A dataset for the Drell-Yan + 1 jet process."""
+    """A dataset for the Drell-Yan + 1 jet process.
+
+    Only two EFT parameters are supported for now: ced and clj3.
+    Only the linear dependence is included in the reweighting basis.
+    """
 
     latent_data: jax.Array
     """The reweight basis"""
@@ -44,6 +49,14 @@ class DY1JDataset(ReweightableDataset):
     """The normalization of the events"""
     extended_likelihood: bool = False
     """Whether to use the extended likelihood (i.e. include the overall normalization shift in the weight)"""
+
+    @property
+    def observable_dim(self) -> int:
+        return self.observables.shape[1]
+
+    @property
+    def parameter_dim(self) -> int:
+        return self.latent_data.shape[1]
 
     @classmethod
     def from_lhe(
@@ -120,12 +133,6 @@ def _decode_weight_name(name: str, expected_wcs: list[str]) -> list[float]:
     return coefs
 
 
-def _quad(vec):
-    outer = vec[..., None, :] * vec[..., None]
-    iu = jnp.tril_indices(vec.shape[-1])
-    return outer[..., iu[0], iu[1]]
-
-
 def _extract_scaling_coefficients(event_weights: ak.Array, expected_wcs: list[str]):
     """Extract the scaling coefficients from the event weights.
 
@@ -139,7 +146,7 @@ def _extract_scaling_coefficients(event_weights: ak.Array, expected_wcs: list[st
         [_decode_weight_name(name, expected_wcs) for name in weight_names]
     )
     print(points.shape)
-    points_quad = np.array([_quad(p) for p in points])
+    points_quad = np.array([tril_outer_product(p) for p in points])
     print(points_quad.shape)
     weights = jnp.array([event_weights[name] for name in weight_names])
     print(weights.shape)
@@ -159,6 +166,14 @@ class VBFHDataset(ReweightableDataset):
     """The normalization of the events"""
     extended_likelihood: bool = False
     """Whether to use the extended likelihood (i.e. include the overall normalization shift in the weight)"""
+
+    @property
+    def observable_dim(self) -> int:
+        return self.observables.shape[1]
+
+    @property
+    def parameter_dim(self) -> int:
+        return self.gen_parameters.shape[0]
 
     @classmethod
     def from_lhe(
@@ -200,10 +215,10 @@ class VBFHDataset(ReweightableDataset):
         )
 
     def likelihood(self, param: jax.Array) -> jax.Array:
-        weights = jnp.vecdot(self.latent_data, _quad(param))
+        weights = jnp.vecdot(self.latent_data, tril_outer_product(param))
         if self.extended_likelihood:
-            return jnp.maximum(weights, jnp.finfo(jnp.float32).eps)
-        norm = _quad(param) @ self.latent_norm
+            return jnp.maximum(weights, EPS)
+        norm = tril_outer_product(param) @ self.latent_norm
         # return weights / norm
         # Avoid case where log(0) is called
-        return jnp.maximum(weights / norm, jnp.finfo(jnp.float32).eps)
+        return jnp.maximum(weights / norm, EPS)

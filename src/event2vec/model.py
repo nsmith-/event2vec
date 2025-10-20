@@ -6,6 +6,8 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
+from event2vec.util import EPS, tril_outer_product
+
 
 class ConstituentModel(Protocol):
     def __call__(self, *args, **kwargs) -> jax.Array: ...
@@ -26,6 +28,8 @@ class LearnedLLR(eqx.Module):
 
 
 class RegularVector_LearnedLLR(LearnedLLR):
+    """Event vector summary and parameter projection model."""
+
     event_summary_model: ConstituentModel
     param_projection_model: ConstituentModel
 
@@ -41,24 +45,39 @@ class RegularVector_LearnedLLR(LearnedLLR):
         return None
 
 
-class MadMiner_LearnedLLR(LearnedLLR):
+class CARL_LearnedLLR(LearnedLLR):
+    """Classic SBI model which predicts the linear dependence of the likelihood ratio on the parameters."""
+
     model: ConstituentModel
-    biasModel: ConstituentModel
 
     def llr_pred(self, observables, param_0, param_1):
-        log_num = jnp.log(
-            self.model(observables) @ param_1 + self.biasModel(observables)
-        )
-        log_den = jnp.log(
-            self.model(observables) @ param_0 + self.biasModel(observables)
-        )
-        return log_num - log_den
+        coef = self.model(observables)
+        return jnp.log(jnp.maximum((coef @ param_1) / (coef @ param_0), EPS))
+
+    def llr_prob(self, observables, param_0, param_1):
+        return None
+
+
+class CARL_LearnedLLR_Quadratic(LearnedLLR):
+    """Classic SBI model which predicts the quadratic dependence of the likelihood ratio on the parameters."""
+
+    model: ConstituentModel
+
+    def llr_pred(self, observables, param_0, param_1):
+        param_0_quad = tril_outer_product(param_0)
+        param_1_quad = tril_outer_product(param_1)
+        coef = self.model(observables)
+        return jnp.log(jnp.maximum((coef @ param_1_quad) / (coef @ param_0_quad), EPS))
 
     def llr_prob(self, observables, param_0, param_1):
         return None
 
 
 class ProbOneHotConstMag_LearnedLLR(LearnedLLR):
+    """A model that predicts both the binwise log-likelihoods and the bin probabilities.
+
+    This can then be used with a hardmax on the bin probabilities to assign events to bins"""
+
     binwise_ll_model: ConstituentModel
     bin_prob_model: ConstituentModel
 
@@ -84,7 +103,7 @@ class E2VMLPConfig:
     depth: int
     """Number of hidden layers in the MLPs."""
 
-    def build(self, key: jax.Array) -> LearnedLLR:
+    def build(self, key: jax.Array):
         """Build the model from the configuration."""
         key1, key2 = jax.random.split(key, 2)
         event_summary = eqx.nn.MLP(
@@ -106,3 +125,38 @@ class E2VMLPConfig:
         return RegularVector_LearnedLLR(
             event_summary_model=event_summary, param_projection_model=param_map
         )
+
+
+@dataclasses.dataclass
+class CARLMLPConfig:
+    """Configuration for the classic CARL model with MLP."""
+
+    event_dim: int
+    """Dimensionality of the event observables."""
+    param_dim: int
+    """Dimensionality of the parameters."""
+    hidden_size: int
+    """Size of the hidden layers in the MLPs."""
+    depth: int
+    """Number of hidden layers in the MLPs."""
+    quadratic: bool = False
+    """Whether to include quadratic terms in the parameter dependence."""
+
+    def build(self, key: jax.Array):
+        """Build the model from the configuration."""
+        cls = CARL_LearnedLLR_Quadratic if self.quadratic else CARL_LearnedLLR
+        npar = (
+            self.param_dim * (self.param_dim + 1) // 2
+            if self.quadratic
+            else self.param_dim
+        )
+        model = eqx.nn.MLP(
+            in_size=self.event_dim,
+            out_size=npar,
+            width_size=self.hidden_size,
+            depth=self.depth,
+            activation=jax.nn.leaky_relu,
+            # final_activation=jax.nn.identity,
+            key=key,
+        )
+        return cls(model=model)
