@@ -21,21 +21,20 @@ classifiers = [
   "Topic :: Scientific/Engineering",
 ]
 dynamic = ["version"]
-# TODO: relax version constraints and use uv.lock lockfile for reproducible installs
-dependencies = ["equinox==0.12.2",
-               "jax==0.6.1",
-               "matplotlib==3.10.3",
-               "numpy==2.3.0",
-               "optax==0.2.5",
-               "rich==14.0.0",
-               "ipywidgets==8.1.7",
-               "pylhe==0.9.1",
-               "awkward==2.8.4"]
+dependencies = [
+  "equinox",
+  "jax",
+  "matplotlib",
+  "numpy",
+  "optax",
+  "rich[jupyter]",
+  "ipykernel<7",   # https://github.com/Textualize/rich/issues/3868
+  "pylhe",
+  "awkward",
+]
 
 [project.optional-dependencies]
-test = [
-  "pytest >=6",
-]
+test = ["pytest >=6"]
 
 [project.urls]
 Homepage = "https://github.com/nsmith-/event2vec"
@@ -50,4 +49,3 @@ build.hooks.vcs.version-file = "src/event2vec/_version.py"
 [tool.hatch.envs.default]
 features = ["test"]
 scripts.test = "pytest {args}"
-

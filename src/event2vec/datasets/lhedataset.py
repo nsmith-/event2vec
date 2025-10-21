@@ -43,6 +43,10 @@ class DY1JDataset(ReweightableDataset):
     Only the linear dependence is included in the reweighting basis.
     """
 
+    observables: jax.Array
+    """The observed data points, shape (num_events, obs_dim)"""
+    gen_parameters: jax.Array
+    """The parameters used to sample this event, shape (2,)"""
     latent_data: jax.Array
     """The reweight basis"""
     latent_norm: jax.Array
@@ -160,6 +164,13 @@ class VBFHDataset(ReweightableDataset):
     The Higgs is not decayed in this dataset.
     """
 
+    observables: jax.Array
+    """The observed data points, shape (num_events, obs_dim)"""
+    gen_parameters: jax.Array
+    """The parameters used to sample this event, shape (6,)
+    
+    Names: cSM, cHbox, cHDD, cHW, cHB, cHWB
+    """
     latent_data: jax.Array
     """The reweight basis"""
     latent_norm: jax.Array

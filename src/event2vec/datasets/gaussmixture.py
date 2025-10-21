@@ -42,13 +42,18 @@ def _likelihood_event(observables: jax.Array, param: jax.Array) -> jax.Array:
 
 
 class GaussMixtureDataset(ReweightableDataset):
+    observables: jax.Array
+    """The observed data points, shape (num_events, 2)"""
+    gen_parameters: jax.Array
+    """The parameters used to sample this event, shape (num_events, 3)"""
+
     @property
     def observable_dim(self) -> int:
         return 2
 
     @property
     def parameter_dim(self) -> int:
-        return 2
+        return 3
 
     def likelihood(self, param: jax.Array) -> jax.Array:
         return jax.vmap(_likelihood_event)(self.observables, param)

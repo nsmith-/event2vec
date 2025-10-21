@@ -12,9 +12,9 @@ from event2vec.prior import JointParameterPrior
 class BinaryClassLoss(eqx.Module):
     """Abstract class for loss functions."""
 
-    parameter_prior: JointParameterPrior
+    parameter_prior: eqx.AbstractVar[JointParameterPrior]
     """The prior over parameters to sample from during training."""
-    continuous_labels: bool = False
+    continuous_labels: eqx.AbstractVar[bool]
     """Whether to use continuous labels (i.e. regression) instead of binary labels (i.e. classification)."""
 
     def __call__(
@@ -63,6 +63,11 @@ class BinaryClassLoss(eqx.Module):
 
 
 class BCELoss(BinaryClassLoss):
+    parameter_prior: JointParameterPrior
+    "The prior over parameters to sample from during training."
+    continuous_labels: bool = False
+    "By default, use binary labels for BCE loss. Continuous labels can be used too."
+
     def _elementwise_loss(self, llr_pred, target_label):
         return optax.losses.sigmoid_binary_cross_entropy(
             logits=llr_pred, labels=target_label
@@ -70,5 +75,10 @@ class BCELoss(BinaryClassLoss):
 
 
 class MSELoss(BinaryClassLoss):
+    parameter_prior: JointParameterPrior
+    "The prior over parameters to sample from during training."
+    continuous_labels: bool = True
+    "For MSE loss, binary labels don't make much sense, so this defaults to True."
+
     def _elementwise_loss(self, llr_pred, target_label):
         return (jax.nn.sigmoid(llr_pred) - target_label) ** 2

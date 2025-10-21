@@ -11,7 +11,7 @@ class Dataset(eqx.Module):
     these will be treated as batchable arrays and will be indexed when the dataset is indexed.
     """
 
-    observables: jax.Array
+    observables: eqx.AbstractVar[jax.Array]
     """Observables of the dataset, e.g. event kinematics, etc."""
 
     def __getitem__(self, key) -> Self:
@@ -70,13 +70,13 @@ class DatasetWithLikelihood(Dataset):
     @abstractmethod
     def observable_dim(self) -> int:
         """Dimensionality of the observables."""
-        raise NotImplementedError("This property should be implemented by subclasses.")
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def parameter_dim(self) -> int:
         """Dimensionality of the parameters."""
-        raise NotImplementedError("This property should be implemented by subclasses.")
+        raise NotImplementedError
 
     @abstractmethod
     def likelihood(self, param: jax.Array) -> jax.Array:
@@ -84,16 +84,13 @@ class DatasetWithLikelihood(Dataset):
 
         This may be defined only up to a multiplicative constant
         """
-        msg = (
-            "This method should be implemented by subclasses of DatasetWithLikelihood."
-        )
-        raise NotImplementedError(msg)
+        raise NotImplementedError
 
 
 class ReweightableDataset(DatasetWithLikelihood):
     """A dataset that can be reweighted by a parameter vector."""
 
-    gen_parameters: jax.Array
+    gen_parameters: eqx.AbstractVar[jax.Array]
     """The parameters used to sample this event"""
 
     def weight(self, param: jax.Array) -> jax.Array:
