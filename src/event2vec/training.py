@@ -108,7 +108,9 @@ def _train(
             train_loss_history.append(sum(tmp) / len(tmp))
             key, subkey = jax.random.split(key)
             model = eqx.combine(diff_model, static_model)
-            test_loss = config.loss_fn(model, data_test, key=subkey).item()
+            test_loss = eqx.filter_jit(config.loss_fn)(
+                model, data_test, key=subkey
+            ).item()
             test_loss_history.append(test_loss)
             progress.update(epoch_task, advance=1, loss=test_loss)
 
