@@ -20,7 +20,10 @@ class BinaryClassLoss(eqx.Module):
     def __call__(
         self, model: LearnedLLR, data: ReweightableDataset, *, key: jax.Array
     ) -> jax.Array:
-        """Compute the loss, sampling parameters from the prior."""
+        """Compute the loss, sampling parameters from the prior.
+
+        TODO: This should not be batching the data internally, that should be done outside.
+        """
         prior_sample_key, label_key = jax.random.split(key, 2)
         param_0, param_1 = jax.vmap(self.parameter_prior.sample)(
             key=jax.random.split(prior_sample_key, len(data))

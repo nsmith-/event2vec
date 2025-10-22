@@ -5,7 +5,8 @@ import jax.numpy as jnp
 import numpy as np
 import pylhe
 
-from event2vec.dataset import ReweightableDataset
+from event2vec.dataset import ReweightableDataset, QuadraticReweightableDataset
+from event2vec.nontrainable import QuadraticFormNormalization
 from event2vec.util import EPS, tril_outer_product
 
 
@@ -126,6 +127,11 @@ class DY1JDataset(ReweightableDataset):
 
 
 def _decode_weight_name(name: str, expected_wcs: list[str]) -> list[float]:
+    """Decode the weight name into the corresponding Wilson coefficient values.
+
+    Expected format: "cHbox_0p1_cHDD_m0p2", etc.
+    The special "SM" name corresponds to all coefficients being zero except for cSM=1.
+    """
     coefs = [0.0 for _ in expected_wcs]
     coefs[expected_wcs.index("cSM")] = 1.0
     if name == "SM":
@@ -140,25 +146,29 @@ def _decode_weight_name(name: str, expected_wcs: list[str]) -> list[float]:
 def _extract_scaling_coefficients(event_weights: ak.Array, expected_wcs: list[str]):
     """Extract the scaling coefficients from the event weights.
 
+    Args:
+        event_weights: the event weights, with fields corresponding to weight names.
+        expected_wcs: expected Wilson coefficient names, e.g. ["cSM", "cHbox", "cHDD", ...]
+    Returns:
+        coeffs: array of shape (len(event_weights), num_coeffs), where num_coeffs = p * (p + 1) / 2, for
+        p Wilson coefficients.
+
     The coefficients are extracted by solving a linear system of equations.
     """
     weight_names = list(event_weights.fields)
-    nwcs = len(expected_wcs)
-    nquad = (nwcs + 1) * (nwcs + 2) // 2
-    print(f"Number of WCs: {nwcs}, number of quadratic terms: {nquad}")
     points = np.array(
         [_decode_weight_name(name, expected_wcs) for name in weight_names]
     )
-    print(points.shape)
     points_quad = np.array([tril_outer_product(p) for p in points])
-    print(points_quad.shape)
     weights = jnp.array([event_weights[name] for name in weight_names])
-    print(weights.shape)
-    coeffs, *_ = jnp.linalg.lstsq(points_quad, weights, rcond=None)
+    coeffs, residuals, *_ = jnp.linalg.lstsq(points_quad, weights, rcond=None)
+    print(
+        f"LHE weight fit residuals mean: {jnp.mean(residuals)} std: {jnp.std(residuals)}"
+    )
     return coeffs.T
 
 
-class VBFHDataset(ReweightableDataset):
+class VBFHDataset(QuadraticReweightableDataset):
     """A dataset for a VBF Higgs process
 
     The Higgs is not decayed in this dataset.
@@ -173,7 +183,7 @@ class VBFHDataset(ReweightableDataset):
     """
     latent_data: jax.Array
     """The reweight basis"""
-    latent_norm: jax.Array
+    normalization: QuadraticFormNormalization
     """The normalization of the events"""
     extended_likelihood: bool = False
     """Whether to use the extended likelihood (i.e. include the overall normalization shift in the weight)"""
@@ -216,12 +226,14 @@ class VBFHDataset(ReweightableDataset):
             events.weights, expected_wcs=["cSM", "cHbox", "cHDD", "cHW", "cHB", "cHWB"]
         )
         starting_point = jnp.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        latent_norm = jnp.mean(latent_data, axis=0)
+        latent_norm = QuadraticFormNormalization.from_coefficients(
+            jnp.mean(latent_data, axis=0)
+        )
         return cls(
             observables=observables,
             gen_parameters=starting_point,
             latent_data=latent_data,
-            latent_norm=latent_norm,
+            normalization=latent_norm,
             extended_likelihood=extended_likelihood,
         )
 
@@ -229,7 +241,7 @@ class VBFHDataset(ReweightableDataset):
         weights = jnp.vecdot(self.latent_data, tril_outer_product(param))
         if self.extended_likelihood:
             return jnp.maximum(weights, EPS)
-        norm = tril_outer_product(param) @ self.latent_norm
+        norm = self.normalization(param)
         # return weights / norm
         # Avoid case where log(0) is called
         return jnp.maximum(weights / norm, EPS)

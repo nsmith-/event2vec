@@ -3,6 +3,8 @@ from typing import Self
 import equinox as eqx
 import jax
 
+from event2vec.nontrainable import QuadraticFormNormalization
+
 
 class Dataset(eqx.Module):
     """Abstract dataset
@@ -70,6 +72,7 @@ class DatasetWithLikelihood(Dataset):
     @abstractmethod
     def observable_dim(self) -> int:
         """Dimensionality of the observables."""
+        # TODO: move to Dataset and make concrete
         raise NotImplementedError
 
     @property
@@ -103,3 +106,13 @@ class ReweightableDataset(DatasetWithLikelihood):
         denom = self.likelihood(self.gen_parameters)
         num = self.likelihood(param)
         return num / denom
+
+
+class QuadraticReweightableDataset(ReweightableDataset):
+    """A reweightable dataset where the un-normalized weights are a quadratic form.
+
+    The normalized weights can be obtained by dividing by the normalization.
+    """
+
+    normalization: eqx.AbstractVar[QuadraticFormNormalization]
+    """The normalization of the events"""

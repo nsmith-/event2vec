@@ -11,6 +11,7 @@ from event2vec.training import TrainingConfig
 from event2vec.loss import BCELoss
 
 DatasetT = TypeVar("DatasetT", bound=ReweightableDataset, covariant=True)
+ModelDatasetT = TypeVar("ModelDatasetT", bound=ReweightableDataset, contravariant=True)
 ModelT = TypeVar("ModelT", bound=LearnedLLR, covariant=True)
 
 
@@ -20,26 +21,28 @@ class DatasetFactory(Protocol[DatasetT]):
         ...
 
 
-class ModelBuilder(Protocol[ModelT]):
-    def build(self, *, key: jax.Array) -> ModelT:
-        """Build a model given a random key.
+class ModelBuilder(Protocol[ModelT, ModelDatasetT]):
+    def build(self, *, key: jax.Array, training_data: ModelDatasetT) -> ModelT:
+        """Build a model given a random key and training dataset.
 
-        TODO: require a dataset passed in, so that the observables and parameters can be inferred from the dataset.
-        Also so that we can apply standard scaling to the observables based on the dataset statistics.
+        The training dataset is provided to allow the model to infer
+        dataset-specific dimensions such as observable and parameter sizes,
+        as well as to perform any necessary preprocessing such as normalization.
         """
         ...
 
 
 def run_experiment(
     data_factory: DatasetFactory[DatasetT],
-    model_config: ModelBuilder[ModelT],
+    model_config: ModelBuilder[ModelT, DatasetT],
     train_config: TrainingConfig,
     *,
     key: jax.Array,
 ) -> tuple[ModelT, DatasetT, list[float], list[float]]:
     data_key, model_key, train_key = jax.random.split(key, 3)
     data = data_factory(key=data_key)
-    model = model_config.build(key=model_key)
+    # TODO: restrict to training data only (train-test split needs to move out of train_config.train)
+    model = model_config.build(key=model_key, training_data=data)
     model, loss_train, loss_test = train_config.train(
         model=model,
         data=data,
@@ -58,8 +61,6 @@ if __name__ == "__main__":
         param_prior=gen_param_prior,
     )
     model_config = E2VMLPConfig(
-        event_dim=2,
-        param_dim=3,
         summary_dim=2,
         hidden_size=4,
         depth=3,

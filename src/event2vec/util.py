@@ -1,3 +1,4 @@
+from typing import Protocol
 import jax
 import jax.numpy as jnp
 
@@ -13,3 +14,23 @@ def tril_outer_product(vec: jax.Array) -> jax.Array:
     outer = vec[..., None, :] * vec[..., None]
     il = jnp.tril_indices(vec.shape[-1])
     return outer[..., il[0], il[1]]
+
+
+def tril_to_matrix(tril: jax.Array) -> jax.Array:
+    """Convert a lower-triangular vector representation back to a square matrix."""
+    k = tril.shape[-1]
+    # k = n*(n+1)/2  => n = (sqrt(8k+1)-1)/2
+    n = int((jnp.sqrt(8 * k + 1) - 1) / 2)
+    il = jnp.tril_indices(n)
+    mat = (
+        jnp.zeros(tril.shape[:-1] + (n, n), dtype=tril.dtype)
+        .at[..., il[0], il[1]]
+        .add(tril / 2)
+        .at[..., il[1], il[0]]
+        .add(tril / 2)
+    )
+    return mat
+
+
+class ConstituentModel(Protocol):
+    def __call__(self, x: jax.Array) -> jax.Array: ...
