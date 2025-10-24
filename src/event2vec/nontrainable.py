@@ -29,7 +29,10 @@ class StandardScaler(NonTrainableModule):
 
 
 class StandardScalerWrapper(eqx.Module):
-    """A wrapper around a model that standardizes its inputs."""
+    """A wrapper around a model that standardizes its inputs.
+
+    TODO: this could also be extended to check dynamic range and auto-log-transform some variables
+    """
 
     scaler: StandardScaler
     model: ConstituentModel

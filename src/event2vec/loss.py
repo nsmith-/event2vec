@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import Protocol
 import jax
 import equinox as eqx
 import optax
@@ -7,6 +8,16 @@ import jax.numpy as jnp
 from event2vec.dataset import ReweightableDataset
 from event2vec.model import LearnedLLR
 from event2vec.prior import JointParameterPrior
+
+
+class Loss(Protocol):
+    """A loss function for training models."""
+
+    def __call__(
+        self, model: LearnedLLR, data: ReweightableDataset, *, key: jax.Array
+    ) -> jax.Array:
+        """Compute the loss for the model on the given dataset."""
+        ...
 
 
 class BinaryClassLoss(eqx.Module):

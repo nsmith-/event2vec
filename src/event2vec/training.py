@@ -14,7 +14,7 @@ from rich.progress import (
 )
 
 from event2vec.dataset import ReweightableDataset
-from event2vec.loss import BinaryClassLoss
+from event2vec.loss import Loss
 from event2vec.model import LearnedLLR
 from event2vec.nontrainable import NonTrainableModule
 
@@ -33,7 +33,7 @@ class TrainingConfig:
     """Learning rate for the optimizer."""
     epochs: int
     """Number of epochs to train for."""
-    loss_fn: BinaryClassLoss
+    loss_fn: Loss
     """Loss function to use for training."""
 
     def train(
