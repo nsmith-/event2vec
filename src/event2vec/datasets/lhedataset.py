@@ -143,15 +143,20 @@ def _decode_weight_name(name: str, expected_wcs: list[str]) -> list[float]:
     return coefs
 
 
-def _extract_scaling_coefficients(event_weights: ak.Array, expected_wcs: list[str]):
+def _extract_scaling_coefficients(
+    event_weights: ak.Array, expected_wcs: list[str], gen_weights: ak.Array
+) -> jax.Array:
     """Extract the scaling coefficients from the event weights.
 
     Args:
         event_weights: the event weights, with fields corresponding to weight names.
         expected_wcs: expected Wilson coefficient names, e.g. ["cSM", "cHbox", "cHDD", ...]
+        gen_weights: the event weights at the generation point (should be all the same value)
     Returns:
         coeffs: array of shape (len(event_weights), num_coeffs), where num_coeffs = p * (p + 1) / 2, for
         p Wilson coefficients.
+
+    Per event, coeffs @ tril_outer_product(gen_parameters) = 1
 
     The coefficients are extracted by solving a linear system of equations.
     """
@@ -160,7 +165,7 @@ def _extract_scaling_coefficients(event_weights: ak.Array, expected_wcs: list[st
         [_decode_weight_name(name, expected_wcs) for name in weight_names]
     )
     points_quad = np.array([tril_outer_product(p) for p in points])
-    weights = jnp.array([event_weights[name] for name in weight_names])
+    weights = jnp.array([event_weights[name] / gen_weights for name in weight_names])
     coeffs, residuals, *_ = jnp.linalg.lstsq(points_quad, weights, rcond=None)
     print(
         f"LHE weight fit residuals mean: {jnp.mean(residuals)} std: {jnp.std(residuals)}"
@@ -182,7 +187,11 @@ class VBFHDataset(QuadraticReweightableDataset):
     Names: cSM, cHbox, cHDD, cHW, cHB, cHWB
     """
     latent_data: jax.Array
-    """The reweight basis"""
+    r"""The event weight coefficients, shape (num_events, num_coeffs)
+    
+    This is $\frac{\theta^T A(z) \theta}{\theta_g^T A(z) \theta_g}$ where $A(z)$ is the matrix of coefficients for event z,
+    and $\theta_g$ are the generation parameters.
+    """
     normalization: QuadraticFormNormalization
     """The normalization of the events"""
     extended_likelihood: bool = False
@@ -204,26 +213,28 @@ class VBFHDataset(QuadraticReweightableDataset):
     ):
         """Load a dataset from an LHE file."""
         events = _to_awkward(path)
-        items = []
-        for i in (2, 3, 4):
-            # Skip the first two particles (beam particles)
-            items.extend(
-                [
-                    events.particles[:, i].vector.pt,
-                    events.particles[:, i].vector.eta,
-                    events.particles[:, i].vector.phi,
-                    _lightjets_mask(events.particles[:, i].id),
-                ]
-            )
-        assert ak.all(abs(events.particles.id[:, -2:]) < 6)
-        leading_pt = ak.max(events.particles.vector.pt[:, -2:], axis=1)
-        j1, j2 = events.particles.vector[:, -2], events.particles.vector[:, -1]
-        dphijj = abs(j1.deltaphi(j2))
-        mjj = (j1 + j2).mass
-        items.extend([leading_pt, mjj, dphijj])
+        h, j1, j2 = (events.particles[:, i] for i in (2, 3, 4))
+        jjsystem = j1.vector + j2.vector
+        items = [
+            np.log(h.vector.pt),
+            h.vector.eta,
+            h.vector.phi,
+            np.log(j1.vector.pt),
+            j1.vector.eta,
+            j1.vector.deltaphi(h.vector),
+            _lightjets_mask(j1.id),
+            np.log(j2.vector.pt),
+            j2.vector.eta,
+            j2.vector.deltaphi(h.vector),
+            j2.vector.deltaphi(j1.vector),
+            _lightjets_mask(j2.id),
+            np.log(jjsystem.mass),
+        ]
         observables = jnp.array(ak.concatenate([i[:, None] for i in items], axis=-1))
         latent_data = _extract_scaling_coefficients(
-            events.weights, expected_wcs=["cSM", "cHbox", "cHDD", "cHW", "cHB", "cHWB"]
+            events.weights,
+            ["cSM", "cHbox", "cHDD", "cHW", "cHB", "cHWB"],
+            events.eventinfo.weight,
         )
         starting_point = jnp.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         latent_norm = QuadraticFormNormalization.from_coefficients(

@@ -103,6 +103,7 @@ class ReweightableDataset(DatasetWithLikelihood):
         """
         # denom shouldn't be zero by construction, since the event was sampled
         # from the distribution defined by gen_parameters
+        # for many scenarios the denominator is just 1
         denom = self.likelihood(self.gen_parameters)
         num = self.likelihood(param)
         return num / denom
