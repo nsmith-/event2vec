@@ -46,13 +46,12 @@ class CARLLinear_LearnedLLR(LearnedLLR):
     """Classic SBI model which predicts the linear dependence of the likelihood ratio on the parameters."""
 
     model: ConstituentModel
-    norm_coef: jax.Array
-    "Cofficients of the overall normalization of the likelihood."
+    normalization: QuadraticFormNormalization
 
     def llr_pred(self, observables, param_0, param_1):
         coef = self.model(observables)
-        num = (coef @ param_1) / (self.norm_coef @ param_1)
-        den = (coef @ param_0) / (self.norm_coef @ param_0)
+        num = (coef @ param_1) / self.normalization(param_1)
+        den = (coef @ param_0) / self.normalization(param_0)
         return jnp.log(jnp.maximum(num / den, EPS))
 
     def llr_prob(self, observables, param_0, param_1):
@@ -63,15 +62,14 @@ class CARLQuadratic_LearnedLLR(LearnedLLR):
     """Classic SBI model which predicts the quadratic dependence of the likelihood ratio on the parameters."""
 
     model: ConstituentModel
-    norm_coef: jax.Array
-    "Cofficients of the overall normalization of the likelihood."
+    normalization: QuadraticFormNormalization
 
     def llr_pred(self, observables, param_0, param_1):
         param_0_quad = tril_outer_product(param_0)
         param_1_quad = tril_outer_product(param_1)
         coef = self.model(observables)
-        num = (coef @ param_1_quad) / (self.norm_coef @ param_1_quad)
-        den = (coef @ param_0_quad) / (self.norm_coef @ param_0_quad)
+        num = (coef @ param_1_quad) / self.normalization(param_1)
+        den = (coef @ param_0_quad) / self.normalization(param_0)
         return jnp.log(jnp.maximum(num / den, EPS))
 
     def llr_prob(self, observables, param_0, param_1):
@@ -211,7 +209,7 @@ class CARLMLPConfig:
     standard_scaler: bool = False
     """Whether to standard scale the event observables."""
 
-    def build(self, key: jax.Array, training_data: ReweightableDataset):
+    def build(self, key: jax.Array, training_data: QuadraticReweightableDataset):
         """Build the model from the configuration."""
         ncoef = training_data.parameter_dim
         cls = CARLQuadratic_LearnedLLR if self.quadratic else CARLLinear_LearnedLLR
@@ -231,4 +229,4 @@ class CARLMLPConfig:
                 model=model,
                 data=training_data.observables,
             )
-        return cls(model=model, norm_coef=jnp.ones(ncoef))
+        return cls(model=model, normalization=training_data.normalization)
