@@ -82,8 +82,9 @@ class QuadraticFormNormalization(Normalization):
         eigvals, eigvecs = jnp.linalg.eigh(tril_to_matrix(coeffs))
         if jnp.all(abs(eigvals) < 1e-8):
             raise ValueError("Coefficient matrix is zero.")
-        if jnp.any(eigvals < -1e-8):
-            msg = f"Coefficient matrix is not positive semi-definite, eigenvalues: {eigvals}"
+        cut = eigvals < -1e-8
+        if jnp.any(cut):
+            msg = f"Coefficient matrix is not positive semi-definite, negative eigenvalues: {eigvals[cut]}"
             warnings.warn(msg, stacklevel=2)
         sqrt_eigvals = jnp.sqrt(jnp.clip(eigvals, min=0.0))
         sqrtcoef = eigvecs @ jnp.diag(sqrt_eigvals)

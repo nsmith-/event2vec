@@ -7,13 +7,20 @@ import pylhe
 
 from event2vec.dataset import ReweightableDataset, QuadraticReweightableDataset
 from event2vec.nontrainable import QuadraticFormNormalization
-from event2vec.util import EPS, tril_outer_product
+from event2vec.util import EPS, standard_pbar, tril_outer_product
 
 
 def _to_awkward(path: str) -> ak.Array:
     """Convert an LHE file to an awkward array."""
     if "*" in path:
-        return ak.concatenate([_to_awkward(p) for p in glob.glob(path)])
+        with standard_pbar() as progress:
+            files = glob.glob(path)
+            return ak.concatenate(
+                [
+                    _to_awkward(p)
+                    for p in progress.track(files, description="Loading LHE files...")
+                ]
+            )
     # workaround for pylhe.to_awkward not supporting weights
     event = next(pylhe.read_lhe_with_attributes(path))
     events = pylhe.to_awkward(pylhe.read_lhe_with_attributes(path))

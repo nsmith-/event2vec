@@ -4,21 +4,25 @@ from typing import TypeVar
 import equinox as eqx
 import jax
 import optax
-from rich.progress import (
-    Progress,
-    TextColumn,
-    SpinnerColumn,
-    TaskProgressColumn,
-    TimeElapsedColumn,
-    TimeRemainingColumn,
-)
+from rich.progress import TextColumn
 
 from event2vec.dataset import ReweightableDataset
 from event2vec.loss import Loss
 from event2vec.model import LearnedLLR
 from event2vec.nontrainable import NonTrainableModule
+from event2vec.util import standard_pbar
 
 ModelT = TypeVar("ModelT", bound=LearnedLLR)
+
+
+@dataclasses.dataclass
+class MetricsHistory:
+    """Class to store training metrics history."""
+
+    train_loss: list[float]
+    """List of training loss values per epoch."""
+    test_loss: list[float]
+    """List of testing loss values per epoch."""
 
 
 @dataclasses.dataclass
@@ -39,7 +43,10 @@ class TrainingConfig:
     def train(
         self, model: ModelT, data: ReweightableDataset, key: jax.Array
     ) -> tuple[ModelT, list[float], list[float]]:
-        """Train the model using the specified configuration."""
+        """Train the model using the specified configuration.
+
+        TODO: replace lists with a MetricsHistory object.
+        """
         return _train(
             config=self,
             model=model,
@@ -86,15 +93,7 @@ def _train(
 
     train_loss_history: list[float] = []
     test_loss_history: list[float] = []
-    pbar = Progress(
-        TextColumn("[progress.description]{task.description}"),
-        TimeElapsedColumn(),
-        SpinnerColumn(),
-        TaskProgressColumn(),
-        TextColumn("Remaining:"),
-        TimeRemainingColumn(),
-        TextColumn("Test loss: {task.fields[loss]:.4f}"),
-    )
+    pbar = standard_pbar(TextColumn("Test loss: {task.fields[loss]:.4f}"))
     with pbar as progress:
         epoch_task = progress.add_task("Training...", total=config.epochs, loss=0.0)
         for _ in range(config.epochs):

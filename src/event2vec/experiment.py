@@ -1,4 +1,7 @@
-from typing import Protocol, TypeVar
+from abc import ABC, abstractmethod
+import argparse
+from pathlib import Path
+from typing import Protocol, Self, TypeVar
 
 import jax
 import jax.numpy as jnp
@@ -32,6 +35,25 @@ class ModelBuilder(Protocol[ModelT, ModelDatasetT]):
         ...
 
 
+class ExperimentConfig(ABC):
+    @classmethod
+    @abstractmethod
+    def register_parser(cls, parser: argparse.ArgumentParser) -> None:
+        """Register command-line arguments for this experiment."""
+        ...
+
+    @classmethod
+    @abstractmethod
+    def from_args(cls, args: argparse.Namespace) -> Self:
+        """Create an experiment configuration from parsed arguments."""
+        ...
+
+    @abstractmethod
+    def run(self, output_dir: Path) -> None:
+        """Run the experiment, saving outputs to the specified directory."""
+        ...
+
+
 def run_experiment(
     data_factory: DatasetFactory[DatasetT],
     model_config: ModelBuilder[ModelT, DatasetT],
@@ -39,6 +61,10 @@ def run_experiment(
     *,
     key: jax.Array,
 ) -> tuple[ModelT, DatasetT, list[float], list[float]]:
+    """Run a full experiment: data loading, model building, training.
+
+    TODO: require output directory and save results, including checkpoints.
+    """
     data_key, model_key, train_key = jax.random.split(key, 3)
     data = data_factory(key=data_key)
     # TODO: restrict to training data only (train-test split needs to move out of train_config.train)

@@ -1,6 +1,15 @@
 from typing import Protocol
+
 import jax
 import jax.numpy as jnp
+from rich.progress import (
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 
 EPS = jnp.finfo(jnp.float32).eps
 "A small constant to avoid numerical issues with log(0) or division by zero."
@@ -34,3 +43,19 @@ def tril_to_matrix(tril: jax.Array) -> jax.Array:
 
 class ConstituentModel(Protocol):
     def __call__(self, x: jax.Array) -> jax.Array: ...
+
+
+def standard_pbar(*cols) -> Progress:
+    """Standard progress bar with common columns.
+
+    Args:
+        *cols: Additional columns to add to the progress bar.
+    """
+    return Progress(
+        TextColumn("[progress.description]{task.description}"),
+        TimeElapsedColumn(),
+        SpinnerColumn(),
+        TaskProgressColumn(),
+        TextColumn("Rem:"),
+        TimeRemainingColumn(),
+    )
