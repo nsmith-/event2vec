@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 
 from event2vec.dataset import ReweightableDataset
-from event2vec.model import LearnedLLR
+from event2vec.model import LearnedLLR, RegularVector_LearnedLLR
 from event2vec.training import MetricsHistory
 from event2vec.util import standard_pbar
 
@@ -102,6 +102,28 @@ def plot_observable(
     ax.legend()
 
 
+def plot_vecfield(ax: Axes, model: RegularVector_LearnedLLR, observables: jax.Array):
+    """Plot the vector field of the event summary model over 2D observables.
+
+    Args:
+        ax: The matplotlib Axes to plot on.
+        model: The trained RegularVector_LearnedLLR model.
+        observables: A (N, 2) array of observables to define the plotting range.
+    """
+    x = jnp.linspace(jnp.min(observables[:, 0]), jnp.max(observables[:, 0]), 20)
+    y = jnp.linspace(jnp.min(observables[:, 1]), jnp.max(observables[:, 1]), 20)
+    X, Y = jnp.meshgrid(x, y)
+    grid_points = jnp.stack([X.ravel(), Y.ravel()], axis=-1)
+
+    summaries = jax.vmap(model.event_summary_model)(grid_points)
+    U = summaries[:, 0].reshape(X.shape)
+    V = summaries[:, 1].reshape(Y.shape)
+
+    ax.quiver(X, Y, U, V)
+    ax.set_xlabel("Observable 0")
+    ax.set_ylabel("Observable 1")
+
+
 def study_point_analysis(
     model: LearnedLLR,
     data: ReweightableDataset,
@@ -153,7 +175,7 @@ def run_analysis(
     """Run standard analysis routines on a trained model"""
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    nplots = 1 + len(study_points) * (len(study_points) - 1)
+    nplots = 2 + len(study_points) * (len(study_points) - 1)
 
     with standard_pbar() as progress:
         analysis_task = progress.add_task("Running analysis...", total=nplots)
@@ -165,6 +187,13 @@ def run_analysis(
         fig.savefig(output_dir / "loss_log.png")
         plt.close(fig)
         progress.advance(analysis_task)
+
+        if isinstance(model, RegularVector_LearnedLLR) and data.observable_dim == 2:
+            fig, ax = plt.subplots()
+            plot_vecfield(ax, model, data.observables)
+            fig.savefig(output_dir / "vector_field.png")
+            plt.close(fig)
+            progress.advance(analysis_task)
 
         for p0name, param_0 in study_points.items():
             for p1name, param_1 in study_points.items():

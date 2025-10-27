@@ -4,6 +4,9 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
+# TODO: use regular dataclasses rather than equinox for non-neural-net modules?
+# This would fix the non-faithful repr issue when printing these objects.
+
 
 class ParameterPrior(eqx.Module):
     """Abstract class for parameter priors.

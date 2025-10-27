@@ -61,6 +61,10 @@ class Dataset(eqx.Module):
             yield self[start : start + batch_size]
 
 
+# TODO: ReweightableDataset should be a superclass of DatasetWithLikelihood
+# because we can reweight even if we don't have the full likelihood
+
+
 class DatasetWithLikelihood(Dataset):
     """Abstract dataset which has a likelihood function.
 
