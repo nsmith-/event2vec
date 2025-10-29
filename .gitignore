@@ -1,4 +1,5 @@
 __pycache__
 .ipynb_checkpoints
+src/event2vec/_version.py
 notebook/*.pdf
 notebook/*.png
