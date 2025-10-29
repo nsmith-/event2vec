@@ -40,6 +40,19 @@ def tril_to_matrix(tril: jax.Array) -> jax.Array:
     )
     return mat
 
+def matrix_to_tril(mat: jax.Array) -> jax.Array:
+    """Convert a symmetric square matrix to a lower-triangular vector representation."""
+    n = mat.shape[-1]
+    il = jnp.tril_indices(n)
+
+    diag_indices = [int(i*(i+3)/2) for i in range(n)]
+
+    tril = 2*(
+        mat[..., il[0], il[1]]
+        .at[..., diag_indices]
+        .divide(2)
+    )
+    return tril
 
 class ConstituentModel(Protocol):
     def __call__(self, x: jax.Array) -> jax.Array: ...
