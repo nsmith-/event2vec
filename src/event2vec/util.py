@@ -52,7 +52,7 @@ def standard_pbar(*cols) -> Progress:
         *cols: Additional columns to add to the progress bar.
     """
     return Progress(
-        TextColumn("[progress.description]{task.description}"),
+        TextColumn("[progress.description]{task.description:30s}"),
         TimeElapsedColumn(),
         SpinnerColumn(),
         TaskProgressColumn(),
