@@ -29,7 +29,7 @@ dependencies = [
   "optax",
   "rich[jupyter]",
   "ipykernel<7",   # https://github.com/Textualize/rich/issues/3868
-  "pylhe",
+  "pylhe>=1.0",
   "awkward",
 ]
 
