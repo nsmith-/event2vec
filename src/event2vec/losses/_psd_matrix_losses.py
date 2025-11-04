@@ -20,7 +20,7 @@ class PSDMatrixLoss(Loss):
                  model: PSDMatrixModel,
                  data: ReweightableDataset,
                  **kwargs) -> Float[Array, ""]:
-        pred_matrices = jax.vmap(model.__call__)(data.observables)
+        pred_matrices = jax.vmap(model)(data.observables)
         label_matrices = tril_to_matrix(data.latent_data)
 
         return (
@@ -40,10 +40,10 @@ class PSDMatrixLoss_DiagOnly(Loss):
                  model: PSDMatrixModel_WithUD,
                  data: ReweightableDataset,
                  **kwargs) -> Float[Array, ""]:
-        pred_diags = jax.vmap(model.D_model.__call__)(data.observables)
+        pred_diags = jax.vmap(model.D_model)(data.observables)
 
         label_matrices = tril_to_matrix(data.latent_data)
-        U_matrices = jax.vmap(model.U_model.__call__)(data.observables)
+        U_matrices = jax.vmap(model.U_model)(data.observables)
 
         label_diags = jnp.empty_like(pred_diags)
         for i in range(pred_diags.shape[-1]):
@@ -52,7 +52,7 @@ class PSDMatrixLoss_DiagOnly(Loss):
             tmp = jnp.sum(label_matrices * ui_vectors[..., None, :], axis=-1)
             tmp = jnp.sum(tmp * ui_vectors, axis=-1)
 
-            label_diags.at[..., i].set(tmp)
+            label_diags = label_diags.at[..., i].set(tmp)
 
         return (
             jax.vmap(self._per_datapoint_loss)(pred_diags, label_diags)
