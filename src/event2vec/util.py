@@ -29,7 +29,7 @@ def tril_to_matrix(tril: jax.Array) -> jax.Array:
     """Convert a lower-triangular vector representation back to a square matrix."""
     k = tril.shape[-1]
     # k = n*(n+1)/2  => n = (sqrt(8k+1)-1)/2
-    n = int((jnp.sqrt(8 * k + 1) - 1) / 2)
+    n = int(((8 * k + 1)**0.5 - 1) / 2)
     il = jnp.tril_indices(n)
     mat = (
         jnp.zeros(tril.shape[:-1] + (n, n), dtype=tril.dtype)
