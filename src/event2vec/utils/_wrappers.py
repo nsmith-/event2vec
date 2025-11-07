@@ -1,27 +1,56 @@
-import jax
-import jax.numpy as jnp
+from dataclasses import KW_ONLY, InitVar
+from copy import deepcopy
+
+from jaxtyping import Float, Array, PRNGKeyArray
 
 from event2vec.models import Model
-from event2vec.utils import NonTrainableModule, set_nontrainable
+from event2vec.losses import Loss, LossProtocol
 
-class ArrayAsModel(Model):
-    """Model that returns `wrapped_arr` as the output regardless of input."""
+from event2vec.dataset import Dataset
 
-    wrapped_arr: jax.Array
+class ModelWrapper[T](Model):
+    """Wraps an input object into an instance of (a final subclass of) Model.
 
-    def __call__(self, *args, **kwargs):
-        return self.wrapped_arr
+    The wrapped object can be accessed either as
+    `model_instance.wrapped_obj` or as `model_instance(*args, **kwargs)`.
+    Here args and kwargs are simply ignored.
+    """
 
-class ArrayAsNonTrainableModel(Model, NonTrainableModule):
-    """Nontrainable variant of ArrayAsModel."""
+    wrapped_obj: T
+    "Object to be wrapped."
 
-    wrapped_arr: jax.Array
+    _: KW_ONLY
 
-    def __call__(self, *args, **kwargs):
-        return self.wrapped_arr
+    is_static: bool = False
 
-def nontrainable_copy(array: jax.Array):
-    array_copy = jnp.copy(array)
-    set_nontrainable(array_copy)
+    copy: InitVar[bool] = True
+    "If True, a copy of the input object will be wrapped around."
 
-    return array_copy
+    def __post_init__(self, copy: bool):
+        if copy:
+            self.wrapped_obj = deepcopy(self.wrapped_obj)
+
+    def __call__(self, *args, **kwargs) -> T:
+        return self.wrapped_obj
+
+class LossWrapper(Loss):
+    """Wraps a callable into an instance of (a final subclass of) Loss."""
+
+    wrapped_callable: LossProtocol
+    "Callable to be wrapped."
+
+    _: KW_ONLY
+
+    copy: InitVar[bool] = True
+    "If True, a copy of the callable will be wrapped around."
+
+    def __post_init__(self, copy: bool):
+        if copy:
+            self.wrapped_callable = deepcopy(self.wrapped_callable)
+
+    def __call__(self,
+                 model: Model,
+                 data: Dataset,
+                 *,
+                 key: PRNGKeyArray | None = None) -> Float[Array, ""]:
+        return self.wrapped_callable(model=model, data=data, key=key)

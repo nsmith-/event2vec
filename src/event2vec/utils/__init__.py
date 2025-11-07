@@ -1,17 +1,11 @@
-from ._trainability import (
-    NonTrainableModule,
-    set_nontrainable,
-    unset_nontrainable,
-    is_nontrainable,
-    is_trainable_array,
-    partition_trainable_and_static
+from ._is_static_utils import (
+    partition_trainable_and_static,
+    set_is_static,
+    set_is_static_at,
+    set_is_static_at_node
 )
 
-from ._wrappers import (
-    ArrayAsModel,
-    ArrayAsNonTrainableModel,
-    nontrainable_copy
-)
+from ._wrappers import ModelWrapper, LossWrapper
 
 from ._stats import (
     mvn_first_moment,

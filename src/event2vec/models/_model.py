@@ -9,6 +9,13 @@ import equinox as eqx
 from jaxtyping import Array, PRNGKeyArray
 
 class Model(eqx.Module):
+    is_static: eqx.AbstractVar[bool]
+    """Whether the class instance should be treated as static by the
+    utility function `partition_trainable_and_static`."""
+
+    def __check_init__(self):
+        assert isinstance(self.is_static, bool)
+
     @abstractmethod
     def __call__(self, *args, **kwargs):
         raise NotImplementedError
@@ -17,6 +24,7 @@ class MLP(Model):
     out_shape: tuple[int, ...]
     layers: list[Callable]
     activations: list[Callable]
+    is_static: bool
 
     def __init__(self, *,
                  in_shape: Iterable[int],
@@ -24,9 +32,10 @@ class MLP(Model):
                  hidden_widths: Iterable[int],
                  hidden_activation: Callable,
                  final_activation: Callable,
+                 key: PRNGKeyArray,
                  use_hidden_bias: bool = True,
                  use_final_bias: bool = True,
-                 key: PRNGKeyArray):
+                 is_static: bool = False):
 
         self.out_shape = tuple(out_shape)
 
@@ -53,6 +62,8 @@ class MLP(Model):
             [hidden_activation] * num_hidden_layers
             + [final_activation]
         )
+
+        self.is_static = bool(is_static)
 
     def __call__(self, x: Array, *, key: PRNGKeyArray | None = None) -> Array:
         x = jnp.ravel(x)                        # flatten input

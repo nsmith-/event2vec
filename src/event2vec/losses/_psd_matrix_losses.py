@@ -1,25 +1,26 @@
 from abc import abstractmethod
+from dataclasses import KW_ONLY
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import Float, Array
+from jaxtyping import Float, Array, PRNGKeyArray
 
 from event2vec.models.psd_matrix_models import (
     PSDMatrixModel, PSDMatrixModel_WithUD
 )
-from event2vec.utils import set_nontrainable
 from event2vec.losses import Loss
 
 from event2vec.util import tril_to_matrix
 from event2vec.dataset import ReweightableDataset
 
-## TODO: Implement non-redundant versions of these losses
+## TODO: Implement non-redundant versions of these losses?
 
 class PSDMatrixLoss(Loss):
     def __call__(self,
                  model: PSDMatrixModel,
                  data: ReweightableDataset,
-                 **kwargs) -> Float[Array, ""]:
+                 *,
+                 key: PRNGKeyArray | None = None) -> Float[Array, ""]:
         pred_matrices = jax.vmap(model)(data.observables)
         label_matrices = tril_to_matrix(data.latent_data)
 
@@ -39,7 +40,8 @@ class PSDMatrixLoss_DiagOnly(Loss):
     def __call__(self,
                  model: PSDMatrixModel_WithUD,
                  data: ReweightableDataset,
-                 **kwargs) -> Float[Array, ""]:
+                 *,
+                 key: PRNGKeyArray | None = None) -> Float[Array, ""]:
         pred_diags = jax.vmap(model.D_model)(data.observables)
 
         label_matrices = tril_to_matrix(data.latent_data)
@@ -73,12 +75,9 @@ class FrobeniusNormLoss(PSDMatrixLoss):
 
     A = None corresponds to the identity matrix."""
 
-    A_matrix: Float[Array, "K N"] | None = None
+    _: KW_ONLY
 
-    def __post_init__(self):
-        # In case the loss instance ends up within a gradient argument.
-        if self.A_matrix is not None:
-            set_nontrainable(self.A_matrix)
+    A_matrix: Float[Array, "K N"] | None = None
 
     def _per_datapoint_loss(
             self,
@@ -95,20 +94,54 @@ class FrobeniusNormLoss(PSDMatrixLoss):
 
 class HyperQuadNormLoss(PSDMatrixLoss):
     """Returns `sum_{ij,kl} P_{ij,kl} (Y-T)_{ij} (Y-T)_{kl}`,
-    where Y is the prediction matrix, T is the label matrix,
+    where Y is the prediction PSD matrix, T is the label PSD matrix,
     and P is a fixed parameter tensor with four indices.
 
-    P is expected to be positive semidefinite, when viewing
-    (ij) as the first index and (kl) as the second index.
+    P = None corresponds to P_{ij,kl} = delta(i, k) delta(j, l).
 
-    P = None corresponds to P_{ij,kl} = delta(i, k) delta(j, l)."""
+    More notes:
+    ----------
+
+    During initialization, P_{ij,kl} will be symmetrized with respect to the
+    following transformations:
+        (a)  i <--> j
+        (b)  k <--> l
+        (c) ij <--> kl
+    In other words this transformation will be performed upon initialization:
+        P_{ij,kl} := (
+              P_{ij,kl} + P_{ji,kl} + P_{ij,lk} + P_{ji,lk}
+            + P_{kl,ij} + P_{kl,ji} + P_{lk,ij} + P_{lk,ji}
+        ) / 8
+
+    After the transformation above, P is expected to be positive semidefinite,
+    when viewing (ij) as the first index and (kl) as the second index.
+
+    Furthermore, under this view, P should have N*(N+1)/2 non-zero eigenvalues,
+    in order to regress **all** the free components of the prediction matrix Y.
+    """
+
+    _: KW_ONLY
 
     P_tensor: Float[Array, "N N N N"] | None = None
 
     def __post_init__(self):
-        # In case the loss instance ends up within a gradient argument.
-        if self.P_tensor is not None:
-            set_nontrainable(self.P_tensor)
+        if self.P_tensor is None:
+            return
+
+        self.P_tensor = (
+            self.P_tensor
+            + jnp.transpose(self.P_tensor, axes=(1, 0, 2, 3))
+        ) / 2
+
+        self.P_tensor = (
+            self.P_tensor
+            + jnp.transpose(self.P_tensor, axes=(0, 1, 3, 2))
+        ) / 2
+
+        self.P_tensor = (
+            self.P_tensor
+            + jnp.transpose(self.P_tensor, axes=(2, 3, 0, 1))
+        ) / 2
 
     def _per_datapoint_loss(
             self,
