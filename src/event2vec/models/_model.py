@@ -1,6 +1,5 @@
-from collections.abc import Iterable
 from abc import abstractmethod
-from typing import Callable
+from typing import Callable, Sequence
 import math
 
 import jax
@@ -27,9 +26,9 @@ class MLP(Model):
     is_static: bool
 
     def __init__(self, *,
-                 in_shape: Iterable[int],
-                 out_shape: Iterable[int],
-                 hidden_widths: Iterable[int],
+                 in_shape: Sequence[int],
+                 out_shape: Sequence[int],
+                 hidden_widths: Sequence[int],
                  hidden_activation: Callable,
                  final_activation: Callable,
                  key: PRNGKeyArray,
@@ -50,17 +49,16 @@ class MLP(Model):
         keys = jax.random.split(key, num_layers)
         use_biases = [use_hidden_bias] * num_hidden_layers + [use_final_bias]
 
-        self.layers = [
+        self.layers = tuple(
             eqx.nn.Linear(
                 in_features=layer_dims[i], out_features=layer_dims[i+1],
                 use_bias=use_biases[i], key = keys[i]
             )
             for i in range(num_layers)
-        ]
+        )
 
-        self.activations = (
-            [hidden_activation] * num_hidden_layers
-            + [final_activation]
+        self.activations = tuple(
+            [hidden_activation] * num_hidden_layers + [final_activation]
         )
 
         self.is_static = bool(is_static)
