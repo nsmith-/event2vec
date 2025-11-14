@@ -9,6 +9,7 @@ from event2vec.dataset import QuadraticReweightableDataset, ReweightableDataset
 from event2vec.nontrainable import QuadraticFormNormalization, StandardScalerWrapper
 from event2vec.util import EPS, ConstituentModel, tril_outer_product
 
+from event2vec.models.psd_matrix_models import PSDMatrixModel
 
 class LearnedLLR(eqx.Module):
     @abstractmethod
@@ -117,6 +118,40 @@ class ProbOneHotConstMag_LearnedLLR(LearnedLLR):
     def llr_prob(self, observables, param_0, param_1):
         return self.bin_prob_model(observables)
 
+class PSDMatrixModel_LearnedLLR(LearnedLLR):
+    psd_matrix_model: PSDMatrixModel
+    avg_psd_matrix: jax.Array | None
+
+    def __init__(self, psd_matrix_model: PSDMatrixModel,
+                 data_for_normalization = None):
+        self.psd_matrix_model = psd_matrix_model
+        if data_for_normalization is None:
+            self.avg_psd_matrix = None
+        else:
+            self.avg_psd_matrix = jax.vmap(self.psd_matrix_model)(
+                data_for_normalization.observables
+            ).mean(axis=0)
+
+    def llr_pred(self, observables, param_0, param_1):
+        psd_matrix = self.psd_matrix_model(observables)
+        likelihood_0 = jnp.vecdot((psd_matrix @ param_0), param_0)
+        likelihood_1 = jnp.vecdot((psd_matrix @ param_1), param_1)
+
+        if self.avg_psd_matrix is not None:
+            likelihood_0 = (
+                likelihood_0
+                / jnp.vecdot((self.avg_psd_matrix @ param_0), param_0)
+            )
+
+            likelihood_1 = (
+                likelihood_1
+                / jnp.vecdot((self.avg_psd_matrix @ param_1), param_1)
+            )
+
+        return jnp.log(likelihood_1) - jnp.log(likelihood_0)
+
+    def llr_prob(self, observables, param_0, param_1):
+        return None
 
 @dataclasses.dataclass
 class E2VMLPConfig:
