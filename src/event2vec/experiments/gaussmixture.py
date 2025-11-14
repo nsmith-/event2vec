@@ -9,7 +9,7 @@ import equinox as eqx
 from event2vec.analysis import run_analysis
 from event2vec.datasets.gaussmixture import GaussMixtureDatasetFactory
 from event2vec.experiment import ExperimentConfig, run_experiment
-from event2vec.loss import BCELoss
+from event2vec.loss import BCELoss, MSELoss
 from event2vec.model import E2VMLPConfig
 from event2vec.prior import DirichletParameterPrior, UncorrelatedJointPrior
 from event2vec.training import MetricsHistory, TrainingConfig
@@ -38,10 +38,18 @@ class GaussianMixture(ExperimentConfig):
             default=1_000,
             help="Number of training epochs. (default: %(default)s)",
         )
+        parser.add_argument(
+            "--loss",
+            type=str,
+            choices=["mse", "bce"],
+            default="mse",
+            help="Loss function to use. (default: %(default)s)",
+        )
 
     @classmethod
     def from_args(cls, args: Namespace) -> "GaussianMixture":
         gen_param_prior = DirichletParameterPrior(alpha=jnp.array([9.0, 3.0, 3.0]))
+        joint_prior = UncorrelatedJointPrior(gen_param_prior)
         data_factory = GaussMixtureDatasetFactory(
             len=200_000,
             param_prior=gen_param_prior,
@@ -56,7 +64,9 @@ class GaussianMixture(ExperimentConfig):
             batch_size=128,
             learning_rate=0.005,
             epochs=args.epochs,
-            loss_fn=BCELoss(UncorrelatedJointPrior(gen_param_prior)),
+            loss_fn=MSELoss(joint_prior)
+            if args.loss == "mse"
+            else BCELoss(joint_prior),
         )
         return cls(
             data_factory=data_factory,
