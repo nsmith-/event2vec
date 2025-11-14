@@ -196,15 +196,15 @@ def run_analysis(
             progress.advance(analysis_task)
 
         for p0name, param_0 in study_points.items():
+            p0dir = output_dir / f"den_{p0name}"
             for p1name, param_1 in study_points.items():
                 if p0name == p1name:
                     continue
-                dirname = f"num_{p1name}_den_{p0name}"
                 study_point_analysis(
                     model=model,
                     data=data,
                     param_1=param_1,
                     param_0=param_0,
-                    output_dir=output_dir / dirname,
+                    output_dir=p0dir / f"num_{p1name}",
                 )
                 progress.advance(analysis_task)
