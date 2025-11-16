@@ -3,8 +3,8 @@ from jaxtyping import Float, Array
 
 
 def mvn_first_moment(
-    mean: Float[Array, "N"], cov: Float[Array, "N N"], is_central: bool = False
-) -> Float[Array, "N"]:
+    mean: Float[Array, " N"], cov: Float[Array, "N N"], is_central: bool = False
+) -> Float[Array, " N"]:
     if is_central:
         return jnp.zeros_like(mean)
 
@@ -12,7 +12,7 @@ def mvn_first_moment(
 
 
 def mvn_second_moment(
-    mean: Float[Array, "N"], cov: Float[Array, "N N"], is_central: bool = False
+    mean: Float[Array, " N"], cov: Float[Array, "N N"], is_central: bool = False
 ) -> Float[Array, "N N"]:
     central_moment = (cov + cov.T) / 2
 
@@ -23,7 +23,7 @@ def mvn_second_moment(
 
 
 def mvn_third_moment(
-    mean: Float[Array, "N"], cov: Float[Array, "N N"], is_central: bool = False
+    mean: Float[Array, " N"], cov: Float[Array, "N N"], is_central: bool = False
 ) -> Float[Array, "N N N"]:
     cov = (cov + cov.T) / 2
 
@@ -40,7 +40,7 @@ def mvn_third_moment(
 
 
 def mvn_fourth_moment(
-    mean: Float[Array, "N"], cov: Float[Array, "N N"], is_central: bool = False
+    mean: Float[Array, " N"], cov: Float[Array, "N N"], is_central: bool = False
 ) -> Float[Array, "N N N N"]:
     cov = (cov + cov.T) / 2
 

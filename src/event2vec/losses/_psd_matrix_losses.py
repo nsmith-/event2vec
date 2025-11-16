@@ -62,7 +62,7 @@ class PSDMatrixLoss_DiagOnly(Loss):
 
     @abstractmethod
     def _per_datapoint_loss(
-        self, pred_diag: Float[Array, "K"], label_diag: Float[Array, "K"]
+        self, pred_diag: Float[Array, " K"], label_diag: Float[Array, " K"]
     ) -> Float[Array, ""]:
         raise NotImplementedError
 
@@ -151,6 +151,6 @@ class HyperQuadNormLoss(PSDMatrixLoss):
 
 class DiagMSELoss(PSDMatrixLoss_DiagOnly):
     def _per_datapoint_loss(
-        self, pred_diag: Float[Array, "K"], label_diag: Float[Array, "K"]
+        self, pred_diag: Float[Array, " K"], label_diag: Float[Array, " K"]
     ) -> Float[Array, ""]:
         return jnp.sum((pred_diag - label_diag) ** 2)

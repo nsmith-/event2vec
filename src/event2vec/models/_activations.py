@@ -27,7 +27,7 @@ class ExpAffineLogistic(Model):
         self.log_min = jnp.array(self.log_min, copy=copy)
         self.log_max = jnp.array(self.log_max, copy=copy)
 
-    def __call__(self, x: Float[Array, "N"]) -> Float[Array, "N"]:
+    def __call__(self, x: Float[Array, " N"]) -> Float[Array, " N"]:
         return jnp.exp(
             self.log_max * jax.nn.sigmoid(x) + self.log_min * jax.nn.sigmoid(-x)
         )
