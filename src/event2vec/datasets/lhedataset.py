@@ -21,18 +21,7 @@ def _to_awkward(path: str) -> ak.Array:
                     for p in progress.track(files, description="Loading LHE files...")
                 ]
             )
-    # workaround for pylhe.to_awkward not supporting weights
-    event = next(pylhe.read_lhe_with_attributes(path))
-    events = pylhe.to_awkward(pylhe.read_lhe_with_attributes(path))
-    assert isinstance(event.weights, dict)
-    weights = {w: np.zeros(len(events)) for w in event.weights.keys()}
-
-    for i, event in enumerate(pylhe.read_lhe_with_attributes(path)):
-        for name, weight in weights.items():
-            weight[i] = event.weights[name]  # type: ignore
-
-    events["weights"] = ak.zip(weights)
-    return events
+    return pylhe.to_awkward(pylhe.read_lhe_with_attributes(path))
 
 
 def _lightjets_mask(pid: ak.Array) -> ak.Array:

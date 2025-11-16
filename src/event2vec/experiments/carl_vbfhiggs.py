@@ -57,17 +57,22 @@ class CARLVBFHiggs(ExperimentConfig):
 
     @classmethod
     def from_args(cls, args: Namespace) -> "CARLVBFHiggs":
+        # based on a rough translation of HIG-21-018 uncorrelated uncertainties
+        std = jnp.array([0.5, 2.0, 0.005, 0.002, 0.003]) * 10
         prior = SMPlusNormalParameterPrior(
             mean=jnp.array([0.0, 0.0, 0.0, 0.0, 0.0]),
-            cov=jnp.diag(jnp.array([1.0e1, 1.0e1, 1.0e-1, 1.0e-1, 1.0e0]) * 10),
+            cov=jnp.diag(std**2),
         )
-        run_key, *points_keys = jax.random.split(jax.random.PRNGKey(args.key), 4)
+        run_key = jax.random.PRNGKey(args.key)
 
         points = {
+            # cSM, cHbox, cHDD, cHW, cHB, cHWB
             "SM": jnp.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-            "rnd0": prior.sample(points_keys[0]),
-            "rnd1": prior.sample(points_keys[1]),
-            "rnd2": prior.sample(points_keys[2]),
+            "cHW2em3": jnp.array([1.0, 0.0, 0.0, 2.0e-3, 0.0, 0.0]),
+            "cHB5em3": jnp.array([1.0, 0.0, 0.0, 0.0, 5.0e-3, 0.0]),
+            "cHWB3em3": jnp.array([1.0, 0.0, 0.0, 0.0, 0.0, 3.0e-3]),
+            "cHbox0p5": jnp.array([1.0, 0.5, 0.0, 0.0, 0.0, 0.0]),
+            "cHDD2p0": jnp.array([1.0, 0.0, 2.0, 0.0, 0.0, 0.0]),
         }
         return cls(
             data_factory=VBFHLoader(data_path=args.data_path.resolve()),
