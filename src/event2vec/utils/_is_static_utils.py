@@ -4,7 +4,6 @@ import jax
 import equinox as eqx
 from jaxtyping import PyTree
 
-from event2vec.models import Model
 from event2vec.nontrainable import NonTrainableModule, FreezableModule
 
 
@@ -17,11 +16,11 @@ def partition_trainable_and_static(pytree: PyTree) -> tuple[PyTree, PyTree]:
     )
 
 
-def set_is_static(model: Model, is_static_value: bool):
+def set_is_static(model: FreezableModule, is_static_value: bool):
     """Returns a copy of model, with the given is_static value."""
 
-    if not isinstance(model, Model):
-        raise TypeError(f"`model` must be an instance of {Model}.")
+    if not isinstance(model, FreezableModule):
+        raise TypeError(f"`model` must be an instance of {FreezableModule}.")
     if not isinstance(is_static_value, bool):
         raise TypeError("`is_static_value` must be boolean.")
 
@@ -31,13 +30,13 @@ def set_is_static(model: Model, is_static_value: bool):
 
 
 def set_is_static_at(
-    where: Callable[[PyTree], Model | Sequence[Model]],
+    where: Callable[[PyTree], FreezableModule | Sequence[FreezableModule]],
     pytree: PyTree,
     is_static_value: bool,
 ) -> PyTree:
     """Returns a copy of pytree, with the is_static attribute of either
-        i) a specific Model instance or
-        ii) a sequence of Model instances
+        i) a specific FreezableModule instance or
+        ii) a sequence of FreezableModule instances
     set to is_static_value.
 
     The original pytree is unaffected. All nodes of the returned
@@ -45,7 +44,7 @@ def set_is_static_at(
 
     Parameters
     ----------
-    where : Callable[[PyTree], Model | Sequence[Model]]
+    where : Callable[[PyTree], FreezableModule | Sequence[FreezableModule]]
         A callable PyTree -> Model or PyTree -> tuple[Model, ...].
         It should consume a PyTree with the same structure as pytree, and
         return the model or models to be modified.
@@ -67,17 +66,19 @@ def set_is_static_at(
         raise TypeError("`is_static_value` must be boolean.")
 
     def replace_fn(node):
-        if not isinstance(node, Model):
+        if not isinstance(node, FreezableModule):
             raise TypeError(
                 "where(pytree) should be either a single instance "
-                "or a sequence of instances of {Model}."
+                "or a sequence of instances of {FreezableModule}."
             )
         return set_is_static(model=node, is_static_value=is_static_value)
 
     return eqx.tree_at(where=where, pytree=pytree, replace_fn=replace_fn)
 
 
-def set_is_static_at_node(pytree: PyTree, node: Model, is_static_value: bool) -> PyTree:
+def set_is_static_at_node(
+    pytree: PyTree, node: FreezableModule, is_static_value: bool
+) -> PyTree:
     """Returns a copy of pytree, with node.is_static set to is_static_value.
 
     The original pytree and node are unaffected. All nodes of the returned
@@ -88,7 +89,7 @@ def set_is_static_at_node(pytree: PyTree, node: Model, is_static_value: bool) ->
     pytree : PyTree
         The input pytree whose (modified) copy will be returned.
         pytree should pass equinox.tree_check.
-    node : Model
+    node : FreezableModule
         The node within pytree to be modified.
     is_static_value : bool
         The new value of node.is_static_value (under the returned copy).
@@ -101,8 +102,8 @@ def set_is_static_at_node(pytree: PyTree, node: Model, is_static_value: bool) ->
 
     eqx.tree_check(pytree)
 
-    if not isinstance(node, Model):
-        raise TypeError(f"`node` must be an instance of {Model}.")
+    if not isinstance(node, FreezableModule):
+        raise TypeError(f"`node` must be an instance of {FreezableModule}.")
 
     if not isinstance(is_static_value, bool):
         raise TypeError("`is_static_value` must be boolean.")
