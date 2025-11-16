@@ -68,7 +68,7 @@ def set_is_static_at(
     def replace_fn(node):
         if not isinstance(node, Model):
             raise TypeError(
-                f"where(pytree) should be either a single instance "
+                "where(pytree) should be either a single instance "
                 "or a sequence of instances of {Model}."
             )
         return set_is_static(model=node, is_static_value=is_static_value)

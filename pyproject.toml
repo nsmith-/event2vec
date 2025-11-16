@@ -52,3 +52,9 @@ build.hooks.vcs.version-file = "src/event2vec/_version.py"
 [tool.hatch.envs.default]
 features = ["test"]
 scripts.test = "pytest {args}"
+
+
+[tool.ruff.lint]
+ignore = [
+  "F722", # syntax error in forward annotation (used by jaxtyping)
+]
