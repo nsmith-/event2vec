@@ -1,15 +1,17 @@
-from dataclasses import KW_ONLY, InitVar
 from copy import deepcopy
+from dataclasses import KW_ONLY, InitVar
+from typing import Generic, TypeVar
 
-from jaxtyping import Float, Array, PRNGKeyArray
-
-from event2vec.models import Model
-from event2vec.losses import Loss, LossProtocol
+from jaxtyping import Array, Float, PRNGKeyArray
 
 from event2vec.dataset import Dataset
+from event2vec.losses import Loss, LossProtocol
+from event2vec.models import Model
+
+T = TypeVar("T")
 
 
-class ModelWrapper[T](Model):
+class ModelWrapper(Model, Generic[T]):
     """Wraps an input object into an instance of (a final subclass of) Model.
 
     The wrapped object can be accessed either as
