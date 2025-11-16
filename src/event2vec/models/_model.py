@@ -7,15 +7,10 @@ import jax.numpy as jnp
 import equinox as eqx
 from jaxtyping import Array, PRNGKeyArray
 
+from event2vec.nontrainable import FreezableModule
 
-class Model(eqx.Module):
-    is_static: eqx.AbstractVar[bool]
-    """Whether the class instance should be treated as static by the
-    utility function `partition_trainable_and_static`."""
 
-    def __check_init__(self):
-        assert isinstance(self.is_static, bool)
-
+class Model(FreezableModule):
     @abstractmethod
     def __call__(self, *args, **kwargs):
         raise NotImplementedError

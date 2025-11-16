@@ -9,7 +9,7 @@ from rich.progress import TextColumn
 from event2vec.dataset import ReweightableDataset
 from event2vec.loss import Loss
 from event2vec.model import LearnedLLR
-from event2vec.nontrainable import NonTrainableModule
+from event2vec.utils import partition_trainable_and_static
 from event2vec.util import standard_pbar
 
 ModelT = TypeVar("ModelT", bound=LearnedLLR)
@@ -64,11 +64,7 @@ def _train(
 ) -> tuple[ModelT, list[float], list[float]]:
     key, subkey = jax.random.split(key)
     data_train, data_test = data.split(config.test_fraction, key=subkey)
-    diff_model, static_model = eqx.partition(
-        model,
-        eqx.is_inexact_array,
-        is_leaf=lambda x: isinstance(x, NonTrainableModule),
-    )
+    diff_model, static_model = partition_trainable_and_static(model)
 
     @eqx.filter_jit
     def make_step(

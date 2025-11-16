@@ -5,14 +5,15 @@ import equinox as eqx
 from jaxtyping import PyTree
 
 from event2vec.models import Model
+from event2vec.nontrainable import NonTrainableModule, FreezableModule
 
 
 def partition_trainable_and_static(pytree: PyTree) -> tuple[PyTree, PyTree]:
     return eqx.partition(
         pytree=pytree,
         filter_spec=eqx.is_inexact_array,
-        is_leaf=lambda node: isinstance(node, Model) and node.is_static,
-        # is_leaf=lambda node: getattr(node, 'is_static', True) # duck typing
+        is_leaf=lambda node: isinstance(node, (NonTrainableModule, FreezableModule))
+        and node.is_static,
     )
 
 

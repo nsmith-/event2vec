@@ -11,6 +11,22 @@ import jax.numpy as jnp
 from event2vec.util import tril_to_matrix
 
 
+class FreezableModule(eqx.Module):
+    """A module that can be frozen (made non-trainable) or unfrozen.
+
+    This is a useful base class for multi-stage training, where some parts
+    of the model should be kept fixed during certain training phases.
+    """
+
+    is_static: eqx.AbstractVar[bool]
+    """Whether the class instance should be treated as static by the
+    utility function `partition_trainable_and_static`, i.e., whether its parameters
+    should be considered frozen in training."""
+
+    def __check_init__(self):
+        assert isinstance(self.is_static, bool)
+
+
 class NonTrainableModule(eqx.Module):
     """A non-trainable module.
 
@@ -18,6 +34,10 @@ class NonTrainableModule(eqx.Module):
     It can be used to define fixed transformations or computations that are part
     of the model architecture but do not require training.
     """
+
+    @property
+    def is_static(cls) -> bool:
+        return True
 
 
 class StandardScaler(NonTrainableModule):
