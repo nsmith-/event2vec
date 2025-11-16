@@ -7,6 +7,7 @@ import jax.numpy as jnp
 import equinox as eqx
 from jaxtyping import Array, PRNGKeyArray
 
+
 class Model(eqx.Module):
     is_static: eqx.AbstractVar[bool]
     """Whether the class instance should be treated as static by the
@@ -19,23 +20,26 @@ class Model(eqx.Module):
     def __call__(self, *args, **kwargs):
         raise NotImplementedError
 
+
 class MLP(Model):
     out_shape: tuple[int, ...]
     layers: list[Callable]
     activations: list[Callable]
     is_static: bool
 
-    def __init__(self, *,
-                 in_shape: Sequence[int],
-                 out_shape: Sequence[int],
-                 hidden_widths: Sequence[int],
-                 hidden_activation: Callable,
-                 final_activation: Callable,
-                 key: PRNGKeyArray,
-                 use_hidden_bias: bool = True,
-                 use_final_bias: bool = True,
-                 is_static: bool = False):
-
+    def __init__(
+        self,
+        *,
+        in_shape: Sequence[int],
+        out_shape: Sequence[int],
+        hidden_widths: Sequence[int],
+        hidden_activation: Callable,
+        final_activation: Callable,
+        key: PRNGKeyArray,
+        use_hidden_bias: bool = True,
+        use_final_bias: bool = True,
+        is_static: bool = False,
+    ):
         self.out_shape = tuple(out_shape)
 
         layer_dims = []
@@ -51,8 +55,10 @@ class MLP(Model):
 
         self.layers = tuple(
             eqx.nn.Linear(
-                in_features=layer_dims[i], out_features=layer_dims[i+1],
-                use_bias=use_biases[i], key = keys[i]
+                in_features=layer_dims[i],
+                out_features=layer_dims[i + 1],
+                use_bias=use_biases[i],
+                key=keys[i],
             )
             for i in range(num_layers)
         )
@@ -64,9 +70,9 @@ class MLP(Model):
         self.is_static = bool(is_static)
 
     def __call__(self, x: Array, *, key: PRNGKeyArray | None = None) -> Array:
-        x = jnp.ravel(x)                        # flatten input
+        x = jnp.ravel(x)  # flatten input
 
         for layer, activation in zip(self.layers, self.activations):
             x = activation(layer(x))
 
-        return x.reshape(self.out_shape)        # reshape output
+        return x.reshape(self.out_shape)  # reshape output

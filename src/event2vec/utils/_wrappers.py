@@ -8,6 +8,7 @@ from event2vec.losses import Loss, LossProtocol
 
 from event2vec.dataset import Dataset
 
+
 class ModelWrapper[T](Model):
     """Wraps an input object into an instance of (a final subclass of) Model.
 
@@ -33,6 +34,7 @@ class ModelWrapper[T](Model):
     def __call__(self, *args, **kwargs) -> T:
         return self.wrapped_obj
 
+
 class LossWrapper(Loss):
     """Wraps a callable into an instance of (a final subclass of) Loss."""
 
@@ -48,9 +50,7 @@ class LossWrapper(Loss):
         if copy:
             self.wrapped_callable = deepcopy(self.wrapped_callable)
 
-    def __call__(self,
-                 model: Model,
-                 data: Dataset,
-                 *,
-                 key: PRNGKeyArray | None = None) -> Float[Array, ""]:
+    def __call__(
+        self, model: Model, data: Dataset, *, key: PRNGKeyArray | None = None
+    ) -> Float[Array, ""]:
         return self.wrapped_callable(model=model, data=data, key=key)

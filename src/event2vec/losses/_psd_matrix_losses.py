@@ -5,9 +5,7 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import Float, Array, PRNGKeyArray
 
-from event2vec.models.psd_matrix_models import (
-    PSDMatrixModel, PSDMatrixModel_WithUD
-)
+from event2vec.models.psd_matrix_models import PSDMatrixModel, PSDMatrixModel_WithUD
 from event2vec.losses import Loss
 
 from event2vec.util import tril_to_matrix
@@ -15,12 +13,15 @@ from event2vec.dataset import ReweightableDataset
 
 ## TODO: Implement non-redundant versions of these losses?
 
+
 class PSDMatrixLoss(Loss):
-    def __call__(self,
-                 model: PSDMatrixModel,
-                 data: ReweightableDataset,
-                 *,
-                 key: PRNGKeyArray | None = None) -> Float[Array, ""]:
+    def __call__(
+        self,
+        model: PSDMatrixModel,
+        data: ReweightableDataset,
+        *,
+        key: PRNGKeyArray | None = None,
+    ) -> Float[Array, ""]:
         pred_matrices = jax.vmap(model)(data.observables)
         label_matrices = tril_to_matrix(data.latent_data)
 
@@ -30,18 +31,19 @@ class PSDMatrixLoss(Loss):
 
     @abstractmethod
     def _per_datapoint_loss(
-            self,
-            pred_matrix: Float[Array, "N N"],
-            label_matrix: Float[Array, "N N"]
-        ) -> Float[Array, ""]:
+        self, pred_matrix: Float[Array, "N N"], label_matrix: Float[Array, "N N"]
+    ) -> Float[Array, ""]:
         raise NotImplementedError
 
+
 class PSDMatrixLoss_DiagOnly(Loss):
-    def __call__(self,
-                 model: PSDMatrixModel_WithUD,
-                 data: ReweightableDataset,
-                 *,
-                 key: PRNGKeyArray | None = None) -> Float[Array, ""]:
+    def __call__(
+        self,
+        model: PSDMatrixModel_WithUD,
+        data: ReweightableDataset,
+        *,
+        key: PRNGKeyArray | None = None,
+    ) -> Float[Array, ""]:
         pred_diags = jax.vmap(model.D_model)(data.observables)
 
         label_matrices = tril_to_matrix(data.latent_data)
@@ -49,24 +51,21 @@ class PSDMatrixLoss_DiagOnly(Loss):
 
         label_diags = jnp.empty_like(pred_diags)
         for i in range(pred_diags.shape[-1]):
-            ui_vectors = U_matrices[...,:,i]
+            ui_vectors = U_matrices[..., :, i]
 
             tmp = jnp.sum(label_matrices * ui_vectors[..., None, :], axis=-1)
             tmp = jnp.sum(tmp * ui_vectors, axis=-1)
 
             label_diags = label_diags.at[..., i].set(tmp)
 
-        return (
-            jax.vmap(self._per_datapoint_loss)(pred_diags, label_diags)
-        ).mean()
+        return (jax.vmap(self._per_datapoint_loss)(pred_diags, label_diags)).mean()
 
     @abstractmethod
     def _per_datapoint_loss(
-            self,
-            pred_diag: Float[Array, "K"],
-            label_diag: Float[Array, "K"]
-        ) -> Float[Array, ""]:
+        self, pred_diag: Float[Array, "K"], label_diag: Float[Array, "K"]
+    ) -> Float[Array, ""]:
         raise NotImplementedError
+
 
 class FrobeniusNormLoss(PSDMatrixLoss):
     """Returns the square of the Frobenius norm of `A @ (Y-T)`,
@@ -80,17 +79,15 @@ class FrobeniusNormLoss(PSDMatrixLoss):
     A_matrix: Float[Array, "K N"] | None = None
 
     def _per_datapoint_loss(
-            self,
-            pred_matrix: Float[Array, "N N"],
-            label_matrix: Float[Array, "N N"]
-        ) -> Float[Array, ""]:
-
-        diff_matrix = (pred_matrix - label_matrix)
+        self, pred_matrix: Float[Array, "N N"], label_matrix: Float[Array, "N N"]
+    ) -> Float[Array, ""]:
+        diff_matrix = pred_matrix - label_matrix
 
         if self.A_matrix is None:
             return jnp.sum(diff_matrix**2)
 
-        return jnp.sum((self.A_matrix @ diff_matrix)**2)
+        return jnp.sum((self.A_matrix @ diff_matrix) ** 2)
+
 
 class HyperQuadNormLoss(PSDMatrixLoss):
     """Returns `sum_{ij,kl} P_{ij,kl} (Y-T)_{ij} (Y-T)_{kl}`,
@@ -129,38 +126,31 @@ class HyperQuadNormLoss(PSDMatrixLoss):
             return
 
         self.P_tensor = (
-            self.P_tensor
-            + jnp.transpose(self.P_tensor, axes=(1, 0, 2, 3))
+            self.P_tensor + jnp.transpose(self.P_tensor, axes=(1, 0, 2, 3))
         ) / 2
 
         self.P_tensor = (
-            self.P_tensor
-            + jnp.transpose(self.P_tensor, axes=(0, 1, 3, 2))
+            self.P_tensor + jnp.transpose(self.P_tensor, axes=(0, 1, 3, 2))
         ) / 2
 
         self.P_tensor = (
-            self.P_tensor
-            + jnp.transpose(self.P_tensor, axes=(2, 3, 0, 1))
+            self.P_tensor + jnp.transpose(self.P_tensor, axes=(2, 3, 0, 1))
         ) / 2
 
     def _per_datapoint_loss(
-            self,
-            pred_matrix: Float[Array, "N N"],
-            label_matrix: Float[Array, "N N"]
-        ) -> Float[Array, ""]:
-
-        diff_matrix = (pred_matrix - label_matrix)
+        self, pred_matrix: Float[Array, "N N"], label_matrix: Float[Array, "N N"]
+    ) -> Float[Array, ""]:
+        diff_matrix = pred_matrix - label_matrix
 
         if self.P_tensor is None:
             return jnp.sum(diff_matrix**2)
 
-        tmp = jnp.sum(self.P_tensor * diff_matrix, axis=(2,3))
+        tmp = jnp.sum(self.P_tensor * diff_matrix, axis=(2, 3))
         return jnp.sum(tmp * diff_matrix)
+
 
 class DiagMSELoss(PSDMatrixLoss_DiagOnly):
     def _per_datapoint_loss(
-            self,
-            pred_diag: Float[Array, "K"],
-            label_diag: Float[Array, "K"]
-        ) -> Float[Array, ""]:
-        return jnp.sum((pred_diag - label_diag)**2)
+        self, pred_diag: Float[Array, "K"], label_diag: Float[Array, "K"]
+    ) -> Float[Array, ""]:
+        return jnp.sum((pred_diag - label_diag) ** 2)

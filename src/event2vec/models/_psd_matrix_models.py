@@ -5,9 +5,11 @@ import equinox as eqx
 
 from event2vec.models import Model
 
+
 class PSDMatrixModel(Model):
     N: eqx.AbstractVar[int]
     "Dimensionality of the PSD matrix being modeled."
+
 
 class PSDMatrixModel_WithUD(PSDMatrixModel):
     U_model: eqx.AbstractVar[Model]
@@ -15,6 +17,7 @@ class PSDMatrixModel_WithUD(PSDMatrixModel):
 
     D_model: eqx.AbstractVar[Model]
     "Expected to return an array of shape (K,) containing non-negative elements."
+
 
 class At_A_Model(PSDMatrixModel):
     """Returns A.T @ A
@@ -36,6 +39,7 @@ class At_A_Model(PSDMatrixModel):
         A = self.A_model(*args, **kwargs)
         A = A.reshape(-1, self.N)
         return A.T @ A
+
 
 class U_sqrtD_At_A_sqrtD_Ut_Model(PSDMatrixModel_WithUD):
     """Returns U @ D^(1/2) @ A.T @ A @ D^(1/2) @ U.T

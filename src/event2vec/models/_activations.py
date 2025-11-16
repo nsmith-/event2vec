@@ -7,12 +7,14 @@ from jaxtyping import Float, Array
 
 from event2vec.models import Model
 
+
 class ExpAffineLogistic(Model):
     """Returns the following elementwise function
         output(x) = exp( (log_max - log_min) * logistic(x) + log_min )
                   = exp( log_max * logistic(x) + log_min * logistic(-x))
     where logistic(x) = 1/(1 + exp(-x)).
     """
+
     is_static: bool = dataclasses.field(default=True, init=False)
 
     _: KW_ONLY
@@ -27,6 +29,5 @@ class ExpAffineLogistic(Model):
 
     def __call__(self, x: Float[Array, "N"]) -> Float[Array, "N"]:
         return jnp.exp(
-            self.log_max * jax.nn.sigmoid(x)
-            + self.log_min * jax.nn.sigmoid(-x)
+            self.log_max * jax.nn.sigmoid(x) + self.log_min * jax.nn.sigmoid(-x)
         )

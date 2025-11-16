@@ -6,32 +6,34 @@ from jaxtyping import PyTree
 
 from event2vec.models import Model
 
+
 def partition_trainable_and_static(pytree: PyTree) -> tuple[PyTree, PyTree]:
     return eqx.partition(
         pytree=pytree,
         filter_spec=eqx.is_inexact_array,
-        is_leaf=lambda node: isinstance(node, Model) and node.is_static
+        is_leaf=lambda node: isinstance(node, Model) and node.is_static,
         # is_leaf=lambda node: getattr(node, 'is_static', True) # duck typing
     )
+
 
 def set_is_static(model: Model, is_static_value: bool):
     """Returns a copy of model, with the given is_static value."""
 
     if not isinstance(model, Model):
-        raise TypeError(
-            f"`model` must be an instance of {Model}."
-        )
+        raise TypeError(f"`model` must be an instance of {Model}.")
     if not isinstance(is_static_value, bool):
         raise TypeError("`is_static_value` must be boolean.")
 
     return eqx.tree_at(
-        where=lambda x: x.is_static,
-        pytree=model,
-        replace=is_static_value
+        where=lambda x: x.is_static, pytree=model, replace=is_static_value
     )
 
-def set_is_static_at(where: Callable[[PyTree], Model | Sequence[Model]],
-                     pytree: PyTree, is_static_value: bool) -> PyTree:
+
+def set_is_static_at(
+    where: Callable[[PyTree], Model | Sequence[Model]],
+    pytree: PyTree,
+    is_static_value: bool,
+) -> PyTree:
     """Returns a copy of pytree, with the is_static attribute of either
         i) a specific Model instance or
         ii) a sequence of Model instances
@@ -69,15 +71,12 @@ def set_is_static_at(where: Callable[[PyTree], Model | Sequence[Model]],
                 f"where(pytree) should be either a single instance "
                 "or a sequence of instances of {Model}."
             )
-        return set_is_static(
-            model=node,
-            is_static_value=is_static_value
-        )
+        return set_is_static(model=node, is_static_value=is_static_value)
 
     return eqx.tree_at(where=where, pytree=pytree, replace_fn=replace_fn)
 
-def set_is_static_at_node(pytree: PyTree, node: Model,
-                          is_static_value: bool) -> PyTree:
+
+def set_is_static_at_node(pytree: PyTree, node: Model, is_static_value: bool) -> PyTree:
     """Returns a copy of pytree, with node.is_static set to is_static_value.
 
     The original pytree and node are unaffected. All nodes of the returned
@@ -119,9 +118,7 @@ def set_is_static_at_node(pytree: PyTree, node: Model,
 
     # equinox.tree_at will create copies of **all** leaves.
     new_leaves = eqx.tree_at(
-        where=lambda x: x[node_idx].is_static,
-        pytree=leaves,
-        replace=is_static_value
+        where=lambda x: x[node_idx].is_static, pytree=leaves, replace=is_static_value
     )
 
     return jax.tree.unflatten(treedef=treedef, leaves=new_leaves)
