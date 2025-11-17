@@ -12,7 +12,15 @@ from event2vec.nontrainable import QuadraticFormNormalization, StandardScalerWra
 from event2vec.util import EPS, tril_outer_product
 
 from event2vec.models.psd_matrix_models import PSDMatrixModel
-from event2vec.shapes import ObsVec, ParamQuadVec, ParamVec, LLRScalar, LLRVec, ProbVec
+from event2vec.shapes import (
+    ObsVec,
+    PSDMatrix,
+    ParamQuadVec,
+    ParamVec,
+    LLRScalar,
+    LLRVec,
+    ProbVec,
+)
 
 
 class LearnedLLR(eqx.Module):
@@ -57,6 +65,18 @@ class VecDotLLR(LearnedLLR):
         return bin_probs @ binwise_llr
 
 
+class PSDMatrixLLR(LearnedLLR):
+    """A model that predicts a positive semi-definite matrix for the log-likelihood ratio dependence on the parameters.
+
+    This is useful for models where the log-likelihood ratio has a quadratic dependence on the parameters.
+    It is abstract to allow for different implementations of the PSD matrix prediction.
+    """
+
+    @abstractmethod
+    def psd_matrix(self, observables: ObsVec) -> PSDMatrix:
+        raise NotImplementedError
+
+
 class CARLLinear_LearnedLLR(LearnedLLR):
     """Classic SBI model which predicts the linear dependence of the likelihood ratio on the parameters."""
 
@@ -91,7 +111,7 @@ class CARLQuadratic_LearnedLLR(LearnedLLR):
         return jnp.log(jnp.maximum(num / den, EPS))
 
 
-class CARLQuadraticForm_LearnedLLR(LearnedLLR):
+class CARLQuadraticForm_LearnedLLR(PSDMatrixLLR):
     r"""SBI model which predicts a variable-rank quadratic form for the log-likelihood ratio dependence on the parameters.
 
     This is taking advantage of the expected structure of the event weight:
@@ -115,37 +135,25 @@ class CARLQuadraticForm_LearnedLLR(LearnedLLR):
         llr_den = jnp.log(jnp.vecdot(pc0, pc0) / self.normalization(param_0))
         return llr_num - llr_den
 
+    def psd_matrix(self, observables: ParamVec) -> PSDMatrix:
+        coef = self.model(observables).reshape(-1, self.rank)
+        return coef @ coef.T
 
-class PSDMatrixModel_LearnedLLR(LearnedLLR):
+
+class PSDMatrixModel_LearnedLLR(PSDMatrixLLR):
     psd_matrix_model: PSDMatrixModel
-    avg_psd_matrix: jax.Array | None
-
-    def __init__(self, psd_matrix_model: PSDMatrixModel, data_for_normalization=None):
-        self.psd_matrix_model = psd_matrix_model
-        if data_for_normalization is None:
-            self.avg_psd_matrix = None
-        else:
-            self.avg_psd_matrix = jax.vmap(self.psd_matrix_model)(
-                data_for_normalization.observables
-            ).mean(axis=0)
+    normalization: QuadraticFormNormalization
 
     def llr_pred(
         self, observables: ObsVec, param_0: ParamVec, param_1: ParamVec
     ) -> LLRScalar:
         psd_matrix = self.psd_matrix_model(observables)
-        likelihood_0 = jnp.vecdot((psd_matrix @ param_0), param_0)
-        likelihood_1 = jnp.vecdot((psd_matrix @ param_1), param_1)
+        l0 = jnp.vecdot((psd_matrix @ param_0), param_0) / self.normalization(param_0)
+        l1 = jnp.vecdot((psd_matrix @ param_1), param_1) / self.normalization(param_1)
+        return jnp.log(l1) - jnp.log(l0)
 
-        if self.avg_psd_matrix is not None:
-            likelihood_0 = likelihood_0 / jnp.vecdot(
-                (self.avg_psd_matrix @ param_0), param_0
-            )
-
-            likelihood_1 = likelihood_1 / jnp.vecdot(
-                (self.avg_psd_matrix @ param_1), param_1
-            )
-
-        return jnp.log(likelihood_1) - jnp.log(likelihood_0)
+    def psd_matrix(self, observables: ObsVec) -> PSDMatrix:
+        return self.psd_matrix_model(observables)
 
 
 @dataclasses.dataclass

@@ -26,3 +26,6 @@ ParamQuadVec: TypeAlias = Float[Array, " Q"]
 in lower-triangular representation. See `tril_outer_product` to construct this from
 P-dimensional parameter vector.
 """
+
+PSDMatrix: TypeAlias = Float[Array, " P P"]
+"""Positive semi-definite matrix of shape P x P, for P-dimensional parameter space."""

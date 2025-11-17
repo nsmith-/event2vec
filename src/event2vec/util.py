@@ -8,7 +8,7 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
-from event2vec.shapes import ParamVec, ParamQuadVec
+from event2vec.shapes import PSDMatrix, ParamVec, ParamQuadVec
 
 EPS = jnp.finfo(jnp.float32).eps
 "A small constant to avoid numerical issues with log(0) or division by zero."
@@ -24,7 +24,7 @@ def tril_outer_product(vec: ParamVec) -> ParamQuadVec:
     return outer[..., il[0], il[1]]
 
 
-def tril_to_matrix(tril: ParamQuadVec) -> jax.Array:
+def tril_to_matrix(tril: ParamQuadVec) -> PSDMatrix:
     """Convert a lower-triangular vector representation back to a square matrix."""
     k = tril.shape[-1]
     # k = n*(n+1)/2  => n = (sqrt(8k+1)-1)/2
@@ -40,7 +40,7 @@ def tril_to_matrix(tril: ParamQuadVec) -> jax.Array:
     return mat
 
 
-def matrix_to_tril(mat: jax.Array) -> ParamQuadVec:
+def matrix_to_tril(mat: PSDMatrix) -> ParamQuadVec:
     """Convert a symmetric square matrix to a lower-triangular vector representation."""
     n = mat.shape[-1]
     il = jnp.tril_indices(n)

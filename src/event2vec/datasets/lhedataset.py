@@ -162,9 +162,9 @@ def _extract_scaling_coefficients(
     )
     points_quad = np.array([tril_outer_product(p) for p in points])
     weights = jnp.array([event_weights[name] / gen_weights for name in weight_names])
-    coeffs, residuals, *_ = jnp.linalg.lstsq(points_quad, weights, rcond=None)
+    coeffs, residuals, rank, _ = jnp.linalg.lstsq(points_quad, weights, rcond=None)
     print(
-        f"LHE weight fit residuals mean: {jnp.mean(residuals)} std: {jnp.std(residuals)}"
+        f"LHE weight fit (rank {rank}) residuals mean: {jnp.mean(residuals)} std: {jnp.std(residuals)}"
     )
     return coeffs.T
 

@@ -1,19 +1,19 @@
 from abc import abstractmethod
 from dataclasses import KW_ONLY
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
-from jaxtyping import Float, Array, PRNGKeyArray
+from jaxtyping import Array, Float, PRNGKeyArray
 
-from event2vec.models.psd_matrix_models import PSDMatrixModel, PSDMatrixModel_WithUD
-
-from event2vec.util import tril_to_matrix
 from event2vec.dataset import QuadraticReweightableDataset
+from event2vec.models.psd_matrix_models import PSDMatrixModel, PSDMatrixModel_WithUD
+from event2vec.util import tril_to_matrix
 
 ## TODO: Implement non-redundant versions of these losses?
 
 
-class PSDMatrixLoss:
+class PSDMatrixLoss(eqx.Module):
     def __call__(
         self,
         model: PSDMatrixModel,
@@ -35,7 +35,7 @@ class PSDMatrixLoss:
         raise NotImplementedError
 
 
-class PSDMatrixLoss_DiagOnly:
+class PSDMatrixLoss_DiagOnly(eqx.Module):
     def __call__(
         self,
         model: PSDMatrixModel_WithUD,

@@ -3,3 +3,5 @@ __pycache__
 src/event2vec/_version.py
 notebook/*.pdf
 notebook/*.png
+.DS_Store
+.vscode/
