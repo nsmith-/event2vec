@@ -53,7 +53,7 @@ class ExperimentConfig(ABC):
 def run_experiment(
     data_factory: DatasetFactory[DatasetT],
     model_config: ModelBuilder[ModelT, DatasetT],
-    train_config: TrainingConfig,
+    train_config: TrainingConfig[ModelT, DatasetT],
     *,
     key: jax.Array,
 ) -> tuple[ModelT, DatasetT, list[float], list[float]]:

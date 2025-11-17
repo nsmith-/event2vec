@@ -12,7 +12,8 @@ from event2vec.model import LearnedLLR
 from event2vec.utils import partition_trainable_and_static
 from event2vec.util import standard_pbar
 
-ModelT = TypeVar("ModelT", bound=LearnedLLR)
+ModelT = TypeVar("ModelT", bound=LearnedLLR, contravariant=True)
+DatasetT = TypeVar("DatasetT", bound=ReweightableDataset, contravariant=True)
 
 
 @dataclasses.dataclass
@@ -26,7 +27,7 @@ class MetricsHistory:
 
 
 @dataclasses.dataclass
-class TrainingConfig(Generic[ModelT]):
+class TrainingConfig(Generic[ModelT, DatasetT]):
     """Configuration for the training process."""
 
     test_fraction: float
@@ -37,11 +38,11 @@ class TrainingConfig(Generic[ModelT]):
     """Learning rate for the optimizer."""
     epochs: int
     """Number of epochs to train for."""
-    loss_fn: Loss[ModelT, ReweightableDataset]
+    loss_fn: Loss[ModelT, DatasetT]
     """Loss function to use for training."""
 
     def train(
-        self, model: ModelT, data: ReweightableDataset, key: jax.Array
+        self, model: ModelT, data: DatasetT, key: jax.Array
     ) -> tuple[ModelT, list[float], list[float]]:
         """Train the model using the specified configuration.
 
@@ -56,10 +57,10 @@ class TrainingConfig(Generic[ModelT]):
 
 
 def _train(
-    config: TrainingConfig[ModelT],
+    config: TrainingConfig[ModelT, DatasetT],
     *,
     model: ModelT,
-    data: ReweightableDataset,
+    data: DatasetT,
     key: jax.Array,
 ) -> tuple[ModelT, list[float], list[float]]:
     key, subkey = jax.random.split(key)
@@ -69,7 +70,7 @@ def _train(
     @eqx.filter_jit
     def make_step(
         diff_model,
-        batch: ReweightableDataset,
+        batch: DatasetT,
         opt_state: optax.OptState,
         *,
         key: jax.Array,
