@@ -9,7 +9,7 @@ import equinox as eqx
 from event2vec.analysis import run_analysis
 from event2vec.datasets.gaussmixture import GaussMixtureDatasetFactory
 from event2vec.experiment import ExperimentConfig, run_experiment
-from event2vec.loss import BCELoss, MSELoss
+from event2vec.loss import BCELoss, BinarySampledParamLoss, MSELoss
 from event2vec.model import E2VMLPConfig
 from event2vec.prior import DirichletParameterPrior, UncorrelatedJointPrior
 from event2vec.training import MetricsHistory, TrainingConfig
@@ -64,9 +64,11 @@ class GaussianMixture(ExperimentConfig):
             batch_size=128,
             learning_rate=0.005,
             epochs=args.epochs,
-            loss_fn=MSELoss(joint_prior)
-            if args.loss == "mse"
-            else BCELoss(joint_prior),
+            loss_fn=BinarySampledParamLoss(
+                parameter_prior=joint_prior,
+                continuous_labels=True,
+                elementwise_loss=MSELoss() if args.loss == "mse" else BCELoss(),
+            ),
         )
         return cls(
             data_factory=data_factory,

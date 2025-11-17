@@ -9,7 +9,7 @@ import jax.numpy as jnp
 from event2vec.analysis import run_analysis
 from event2vec.datasets import VBFHDataset
 from event2vec.experiment import ExperimentConfig, run_experiment
-from event2vec.loss import BCELoss
+from event2vec.loss import BCELoss, BinarySampledParamLoss
 from event2vec.model import CARLQuadraticFormMLPConfig
 from event2vec.prior import SMPlusNormalParameterPrior, UncorrelatedJointPrior
 from event2vec.training import MetricsHistory, TrainingConfig
@@ -87,9 +87,10 @@ class CARLVBFHiggs(ExperimentConfig):
                 batch_size=128,
                 learning_rate=0.001,
                 epochs=args.epochs,
-                loss_fn=BCELoss(
+                loss_fn=BinarySampledParamLoss(
                     parameter_prior=UncorrelatedJointPrior(prior),
                     continuous_labels=True,
+                    elementwise_loss=BCELoss(),
                 ),
             ),
             key=run_key,

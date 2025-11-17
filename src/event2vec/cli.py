@@ -8,7 +8,7 @@ from event2vec.experiment import ExperimentConfig
 import event2vec.experiments as experiments
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Run event2vec experiments.")
     parser.add_argument(
         "-o",

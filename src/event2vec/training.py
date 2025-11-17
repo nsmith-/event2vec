@@ -1,5 +1,5 @@
 import dataclasses
-from typing import TypeVar
+from typing import Generic, TypeVar
 
 import equinox as eqx
 import jax
@@ -26,7 +26,7 @@ class MetricsHistory:
 
 
 @dataclasses.dataclass
-class TrainingConfig:
+class TrainingConfig(Generic[ModelT]):
     """Configuration for the training process."""
 
     test_fraction: float
@@ -37,7 +37,7 @@ class TrainingConfig:
     """Learning rate for the optimizer."""
     epochs: int
     """Number of epochs to train for."""
-    loss_fn: Loss
+    loss_fn: Loss[ModelT, ReweightableDataset]
     """Loss function to use for training."""
 
     def train(
@@ -56,7 +56,7 @@ class TrainingConfig:
 
 
 def _train(
-    config: TrainingConfig,
+    config: TrainingConfig[ModelT],
     *,
     model: ModelT,
     data: ReweightableDataset,

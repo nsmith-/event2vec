@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 
 from event2vec.dataset import ReweightableDataset
-from event2vec.model import LearnedLLR, RegularVector_LearnedLLR
+from event2vec.model import LearnedLLR, VecDotLLR
 from event2vec.training import MetricsHistory
 from event2vec.util import standard_pbar
 
@@ -102,7 +102,7 @@ def plot_observable(
     ax.legend()
 
 
-def plot_vecfield(ax: Axes, model: RegularVector_LearnedLLR, observables: jax.Array):
+def plot_vecfield(ax: Axes, model: VecDotLLR, observables: jax.Array):
     """Plot the vector field of the event summary model over 2D observables.
 
     Args:
@@ -115,7 +115,7 @@ def plot_vecfield(ax: Axes, model: RegularVector_LearnedLLR, observables: jax.Ar
     X, Y = jnp.meshgrid(x, y)
     grid_points = jnp.stack([X.ravel(), Y.ravel()], axis=-1)
 
-    summaries = jax.vmap(model.event_summary_model)(grid_points)
+    summaries = jax.vmap(model.event_summary)(grid_points)
     U = summaries[:, 0].reshape(X.shape)
     V = summaries[:, 1].reshape(Y.shape)
 
@@ -188,7 +188,7 @@ def run_analysis(
         plt.close(fig)
         progress.advance(analysis_task)
 
-        if isinstance(model, RegularVector_LearnedLLR) and data.observable_dim == 2:
+        if isinstance(model, VecDotLLR) and data.observable_dim == 2:
             fig, ax = plt.subplots()
             plot_vecfield(ax, model, data.observables)
             fig.savefig(output_dir / "vector_field.png")
