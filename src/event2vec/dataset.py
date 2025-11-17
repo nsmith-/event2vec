@@ -4,6 +4,7 @@ import equinox as eqx
 import jax
 
 from event2vec.nontrainable import QuadraticFormNormalization
+from event2vec.shapes import ParamQuadVec
 
 
 class Dataset(eqx.Module):
@@ -121,3 +122,11 @@ class QuadraticReweightableDataset(ReweightableDataset):
 
     normalization: eqx.AbstractVar[QuadraticFormNormalization]
     """The normalization of the events"""
+
+    @property
+    @abstractmethod
+    def quadratic_form(self) -> ParamQuadVec:
+        """The quadratic form latent data for each event, in lower-triangular representation
+
+        Used to compute the un-normalized weight for any parameter point.
+        """
