@@ -2,10 +2,7 @@ from copy import deepcopy
 from dataclasses import KW_ONLY, InitVar
 from typing import Generic, TypeVar
 
-from jaxtyping import Array, Float, PRNGKeyArray
 
-from event2vec.dataset import Dataset
-from event2vec.losses import Loss, LossProtocol
 from event2vec.models import Model
 
 T = TypeVar("T")
@@ -35,24 +32,3 @@ class ModelWrapper(Model, Generic[T]):
 
     def __call__(self, *args, **kwargs) -> T:
         return self.wrapped_obj
-
-
-class LossWrapper(Loss):
-    """Wraps a callable into an instance of (a final subclass of) Loss."""
-
-    wrapped_callable: LossProtocol
-    "Callable to be wrapped."
-
-    _: KW_ONLY
-
-    copy: InitVar[bool] = True
-    "If True, a copy of the callable will be wrapped around."
-
-    def __post_init__(self, copy: bool):
-        if copy:
-            self.wrapped_callable = deepcopy(self.wrapped_callable)
-
-    def __call__(
-        self, model: Model, data: Dataset, *, key: PRNGKeyArray | None = None
-    ) -> Float[Array, ""]:
-        return self.wrapped_callable(model=model, data=data, key=key)

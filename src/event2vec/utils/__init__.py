@@ -5,7 +5,7 @@ from ._is_static_utils import (
     set_is_static_at_node,
 )
 
-from ._wrappers import ModelWrapper, LossWrapper
+from ._wrappers import ModelWrapper
 
 from ._stats import (
     mvn_first_moment,
@@ -20,7 +20,6 @@ __all__ = [
     "set_is_static_at",
     "set_is_static_at_node",
     "ModelWrapper",
-    "LossWrapper",
     "mvn_first_moment",
     "mvn_second_moment",
     "mvn_third_moment",
