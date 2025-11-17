@@ -1,11 +1,12 @@
 import glob
+
 import awkward as ak
 import jax
 import jax.numpy as jnp
 import numpy as np
 import pylhe
 
-from event2vec.dataset import ReweightableDataset, QuadraticReweightableDataset
+from event2vec.dataset import QuadraticReweightableDataset, ReweightableDataset
 from event2vec.nontrainable import QuadraticFormNormalization
 from event2vec.util import EPS, standard_pbar, tril_outer_product
 

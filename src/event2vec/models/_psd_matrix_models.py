@@ -1,7 +1,7 @@
 from dataclasses import KW_ONLY
 
-import jax.numpy as jnp
 import equinox as eqx
+import jax.numpy as jnp
 
 from event2vec.models import Model
 

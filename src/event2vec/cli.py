@@ -3,9 +3,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import rich
+
 import event2vec
-from event2vec.experiment import ExperimentConfig
 import event2vec.experiments as experiments
+from event2vec.experiment import ExperimentConfig
 
 
 def main() -> None:

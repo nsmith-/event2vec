@@ -1,10 +1,10 @@
 """Non-trainable modules for use in defining model architectures."""
 
+import warnings
 from abc import abstractmethod
 from typing import Callable
-import warnings
-import equinox as eqx
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 

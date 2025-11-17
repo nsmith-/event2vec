@@ -5,6 +5,7 @@ from pathlib import Path
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+from jaxtyping import PRNGKeyArray
 
 from event2vec.analysis import run_analysis
 from event2vec.datasets.gaussmixture import GaussMixtureDatasetFactory
@@ -27,7 +28,7 @@ class GaussianMixture(ExperimentConfig):
     data_factory: GaussMixtureDatasetFactory
     model_config: E2VMLPConfig
     train_config: TrainingConfig
-    key: jax.Array
+    key: PRNGKeyArray
 
     @classmethod
     def register_parser(cls, parser: ArgumentParser) -> None:

@@ -1,9 +1,10 @@
-from abc import ABC, abstractmethod
 import argparse
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Protocol, Self, TypeVar
 
 import jax
+from jaxtyping import PRNGKeyArray
 
 from event2vec.dataset import ReweightableDataset
 from event2vec.model import LearnedLLR
@@ -15,13 +16,13 @@ ModelT = TypeVar("ModelT", bound=LearnedLLR, covariant=True)
 
 
 class DatasetFactory(Protocol[DatasetT]):
-    def __call__(self, *, key: jax.Array) -> DatasetT:
+    def __call__(self, *, key: PRNGKeyArray) -> DatasetT:
         """Create a dataset given a random key."""
         ...
 
 
 class ModelBuilder(Protocol[ModelT, ModelDatasetT]):
-    def build(self, *, key: jax.Array, training_data: ModelDatasetT) -> ModelT:
+    def build(self, *, key: PRNGKeyArray, training_data: ModelDatasetT) -> ModelT:
         """Build a model given a random key and training dataset.
 
         The training dataset is provided to allow the model to infer
@@ -55,7 +56,7 @@ def run_experiment(
     model_config: ModelBuilder[ModelT, DatasetT],
     train_config: TrainingConfig[ModelT, DatasetT],
     *,
-    key: jax.Array,
+    key: PRNGKeyArray,
 ) -> tuple[ModelT, DatasetT, list[float], list[float]]:
     """Run a full experiment: data loading, model building, training.
 

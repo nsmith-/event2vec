@@ -1,8 +1,8 @@
 from ._psd_matrix_losses import (
-    PSDMatrixLoss,
+    DiagMSELoss,
     FrobeniusNormLoss,
     HyperQuadNormLoss,
-    DiagMSELoss,
+    PSDMatrixLoss,
 )
 
 __all__ = [

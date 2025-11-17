@@ -2,7 +2,6 @@ from copy import deepcopy
 from dataclasses import KW_ONLY, InitVar
 from typing import Generic, TypeVar
 
-
 from event2vec.models import Model
 
 T = TypeVar("T")

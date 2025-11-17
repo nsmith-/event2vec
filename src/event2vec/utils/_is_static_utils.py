@@ -1,10 +1,10 @@
 from typing import Callable, Sequence
 
-import jax
 import equinox as eqx
+import jax
 from jaxtyping import PyTree
 
-from event2vec.nontrainable import NonTrainableModule, FreezableModule
+from event2vec.nontrainable import FreezableModule, NonTrainableModule
 
 
 def partition_trainable_and_static(pytree: PyTree) -> tuple[PyTree, PyTree]:

@@ -1,4 +1,3 @@
-import jax
 import jax.numpy as jnp
 from rich.progress import (
     Progress,
@@ -8,7 +7,8 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
-from event2vec.shapes import PSDMatrix, ParamVec, ParamQuadVec
+
+from event2vec.shapes import ParamQuadVec, ParamVec, PSDMatrix
 
 EPS = jnp.finfo(jnp.float32).eps
 "A small constant to avoid numerical issues with log(0) or division by zero."

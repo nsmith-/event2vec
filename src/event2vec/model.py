@@ -5,22 +5,21 @@ from typing import Callable
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-from jaxtyping import Float, Array
+from jaxtyping import Array, Float, PRNGKeyArray
 
 from event2vec.dataset import QuadraticReweightableDataset, ReweightableDataset
-from event2vec.nontrainable import QuadraticFormNormalization, StandardScalerWrapper
-from event2vec.util import EPS, tril_outer_product
-
 from event2vec.models.psd_matrix_models import PSDMatrixModel
+from event2vec.nontrainable import QuadraticFormNormalization, StandardScalerWrapper
 from event2vec.shapes import (
-    ObsVec,
-    PSDMatrix,
-    ParamQuadVec,
-    ParamVec,
     LLRScalar,
     LLRVec,
+    ObsVec,
+    ParamQuadVec,
+    ParamVec,
     ProbVec,
+    PSDMatrix,
 )
+from event2vec.util import EPS, tril_outer_product
 
 
 class LearnedLLR(eqx.Module):
@@ -171,7 +170,7 @@ class E2VMLPConfig:
     bin_probabilities: bool = False
     """Whether to use a softmax final activation for the event summary to get bin probabilities."""
 
-    def build(self, key: jax.Array, training_data: ReweightableDataset):
+    def build(self, key: PRNGKeyArray, training_data: ReweightableDataset):
         """Build the model from the configuration."""
         key1, key2 = jax.random.split(key, 2)
         event_summary: Callable[[ObsVec], ParamVec] = eqx.nn.MLP(
@@ -223,7 +222,7 @@ class CARLQuadraticFormMLPConfig:
     standard_scaler: bool
     """Whether to standard scale the event observables."""
 
-    def build(self, key: jax.Array, training_data: QuadraticReweightableDataset):
+    def build(self, key: PRNGKeyArray, training_data: QuadraticReweightableDataset):
         """Build the model from the configuration."""
         model = eqx.nn.MLP(
             in_size=training_data.observable_dim,
@@ -259,7 +258,7 @@ class CARLMLPConfig:
     standard_scaler: bool = False
     """Whether to standard scale the event observables."""
 
-    def build(self, key: jax.Array, training_data: QuadraticReweightableDataset):
+    def build(self, key: PRNGKeyArray, training_data: QuadraticReweightableDataset):
         """Build the model from the configuration."""
         ncoef = training_data.parameter_dim
         cls = CARLQuadratic_LearnedLLR if self.quadratic else CARLLinear_LearnedLLR

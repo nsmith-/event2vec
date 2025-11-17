@@ -3,7 +3,7 @@ from dataclasses import KW_ONLY, InitVar
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import Float, Array
+from jaxtyping import Array, Float
 
 from event2vec.models import Model
 

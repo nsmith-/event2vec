@@ -4,13 +4,14 @@ from typing import Generic, TypeVar
 import equinox as eqx
 import jax
 import optax
+from jaxtyping import PRNGKeyArray
 from rich.progress import TextColumn
 
 from event2vec.dataset import ReweightableDataset
 from event2vec.loss import Loss
 from event2vec.model import LearnedLLR
-from event2vec.utils import partition_trainable_and_static
 from event2vec.util import standard_pbar
+from event2vec.utils import partition_trainable_and_static
 
 ModelT = TypeVar("ModelT", bound=LearnedLLR, contravariant=True)
 DatasetT = TypeVar("DatasetT", bound=ReweightableDataset, contravariant=True)
@@ -42,7 +43,7 @@ class TrainingConfig(Generic[ModelT, DatasetT]):
     """Loss function to use for training."""
 
     def train(
-        self, model: ModelT, data: DatasetT, key: jax.Array
+        self, model: ModelT, data: DatasetT, key: PRNGKeyArray
     ) -> tuple[ModelT, list[float], list[float]]:
         """Train the model using the specified configuration.
 
@@ -61,7 +62,7 @@ def _train(
     *,
     model: ModelT,
     data: DatasetT,
-    key: jax.Array,
+    key: PRNGKeyArray,
 ) -> tuple[ModelT, list[float], list[float]]:
     key, subkey = jax.random.split(key)
     data_train, data_test = data.split(config.test_fraction, key=subkey)
@@ -73,7 +74,7 @@ def _train(
         batch: DatasetT,
         opt_state: optax.OptState,
         *,
-        key: jax.Array,
+        key: PRNGKeyArray,
     ) -> tuple[jax.Array, ModelT, optax.OptState]:
         @eqx.filter_value_and_grad
         def loss_grad(diff_model, batch, *, key):

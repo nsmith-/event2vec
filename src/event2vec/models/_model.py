@@ -1,10 +1,10 @@
+import math
 from abc import abstractmethod
 from typing import Callable, Sequence
-import math
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
-import equinox as eqx
 from jaxtyping import Array, PRNGKeyArray
 
 from event2vec.nontrainable import FreezableModule

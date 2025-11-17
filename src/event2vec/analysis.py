@@ -1,10 +1,11 @@
 """Standard analysis routines for trained models."""
 
 from pathlib import Path
-from matplotlib.axes import Axes
-import matplotlib.pyplot as plt
+
 import jax
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
 
 from event2vec.dataset import ReweightableDataset
 from event2vec.model import LearnedLLR, VecDotLLR

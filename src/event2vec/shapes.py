@@ -4,7 +4,8 @@ Defined using jaxtyping and type aliases for clarity.
 """
 
 from typing import TypeAlias
-from jaxtyping import Float, Array
+
+from jaxtyping import Array, Float
 
 ParamVec: TypeAlias = Float[Array, " P"]
 r"""Parameter point $\theta$ vector"""

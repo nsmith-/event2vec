@@ -5,6 +5,7 @@ from pathlib import Path
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+from jaxtyping import PRNGKeyArray
 
 from event2vec.analysis import run_analysis
 from event2vec.dataset import ReweightableDataset
@@ -38,7 +39,7 @@ class CARLVBFHiggs(ExperimentConfig):
     data_factory: VBFHLoader
     model_config: CARLQuadraticFormMLPConfig
     train_config: TrainingConfig[LearnedLLR, ReweightableDataset]
-    key: jax.Array
+    key: PRNGKeyArray
     study_points: dict[str, jax.Array]
 
     @classmethod

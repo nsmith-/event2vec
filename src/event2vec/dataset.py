@@ -3,7 +3,7 @@ from typing import Self
 
 import equinox as eqx
 import jax
-from jaxtyping import Array, Float
+from jaxtyping import Array, Float, PRNGKeyArray
 
 from event2vec.nontrainable import QuadraticFormNormalization
 from event2vec.shapes import ParamVec
@@ -33,7 +33,7 @@ class Dataset(eqx.Module):
         """Return the number of events in the dataset."""
         return self.observables.shape[0]
 
-    def split(self, fraction: float, key: jax.Array) -> tuple[Self, Self]:
+    def split(self, fraction: float, key: PRNGKeyArray) -> tuple[Self, Self]:
         """Split the dataset into two parts.
 
         Args:
