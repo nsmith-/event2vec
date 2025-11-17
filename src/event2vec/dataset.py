@@ -1,10 +1,12 @@
 from abc import abstractmethod
 from typing import Self
+
 import equinox as eqx
 import jax
+from jaxtyping import Array, Float
 
 from event2vec.nontrainable import QuadraticFormNormalization
-from event2vec.shapes import ParamQuadVec
+from event2vec.shapes import ParamVec
 
 
 class Dataset(eqx.Module):
@@ -87,7 +89,7 @@ class DatasetWithLikelihood(Dataset):
         raise NotImplementedError
 
     @abstractmethod
-    def likelihood(self, param: jax.Array) -> jax.Array:
+    def likelihood(self, param: ParamVec) -> Float[Array, " batch"]:
         """Compute the likelihood of the dataset w.r.t. the given parameter vector.
 
         This may be defined only up to a multiplicative constant
@@ -98,10 +100,10 @@ class DatasetWithLikelihood(Dataset):
 class ReweightableDataset(DatasetWithLikelihood):
     """A dataset that can be reweighted by a parameter vector."""
 
-    gen_parameters: eqx.AbstractVar[jax.Array]
+    gen_parameters: eqx.AbstractVar[ParamVec]
     """The parameters used to sample this event"""
 
-    def weight(self, param: jax.Array) -> jax.Array:
+    def weight(self, param: ParamVec) -> Float[Array, " batch"]:
         """Compute the weight of the dataset w.r.t. the given parameter vector.
 
         This is the likelihood ratio for the parameter point with respect to the generated point
@@ -125,7 +127,7 @@ class QuadraticReweightableDataset(ReweightableDataset):
 
     @property
     @abstractmethod
-    def quadratic_form(self) -> ParamQuadVec:
+    def quadratic_form(self) -> Float[Array, "batch Q"]:
         """The quadratic form latent data for each event, in lower-triangular representation
 
         Used to compute the un-normalized weight for any parameter point.

@@ -56,6 +56,8 @@ class GaussMixtureDataset(ReweightableDataset):
         return 3
 
     def likelihood(self, param: jax.Array) -> jax.Array:
+        # TODO: param is only (num_events, 3) if called from weight() since gen_parameters is (num_events, 3)
+        # fix by making DatasetWithLikelihood a subclass of ReweightableDataset, and handle specially there
         if param.shape == (3,):
             # Expand dimensions for vmap (as gen_parameters would be (num_events, 3))
             param = jnp.repeat(param[None, :], len(self), axis=0)

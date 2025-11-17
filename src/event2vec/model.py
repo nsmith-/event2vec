@@ -40,6 +40,8 @@ class VecDotLLR(LearnedLLR):
 
     If this model is trained with a BinwiseLoss, then the event summary regresses to bin probabilities,
     and the parameter projection regresses to bin average log-likelihood ratios.
+    Note that in this case the output of the event summary should be a probability vector
+    (e.g. using a softmax final activation)
     """
 
     event_summary: Callable[[ObsVec], ProbVec]
@@ -158,18 +160,32 @@ class E2VMLPConfig:
     """Number of hidden layers in the MLPs."""
     standard_scaler: bool = False
     """Whether to standard scale the event observables."""
+    bin_probabilities: bool = False
+    """Whether to use a softmax final activation for the event summary to get bin probabilities."""
 
     def build(self, key: jax.Array, training_data: ReweightableDataset):
         """Build the model from the configuration."""
         key1, key2 = jax.random.split(key, 2)
-        event_summary = eqx.nn.MLP(
+        event_summary: Callable[[ObsVec], ParamVec] = eqx.nn.MLP(
             in_size=training_data.observable_dim,
             out_size=self.summary_dim,
             width_size=self.hidden_size,
             depth=self.depth,
             activation=jax.nn.leaky_relu,
+            # https://github.com/patrick-kidger/equinox/issues/1147
+            # final_activation=(
+            #     jax.nn.softmax if self.bin_probabilities else jax.nn.identity
+            # ),
             key=key1,
         )
+        if self.bin_probabilities:
+            # Manually add softmax final activation due to Equinox issue
+            old_event_summary = event_summary
+
+            def event_summary_with_softmax(x: ObsVec) -> ProbVec:
+                return jax.nn.softmax(old_event_summary(x))
+
+            event_summary = event_summary_with_softmax
         param_map = eqx.nn.MLP(
             in_size=training_data.parameter_dim,
             out_size=self.summary_dim,

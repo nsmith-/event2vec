@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 
 from event2vec.analysis import run_analysis
-from event2vec.dataset import QuadraticReweightableDataset
+from event2vec.dataset import ReweightableDataset
 from event2vec.datasets import VBFHDataset
 from event2vec.experiment import ExperimentConfig, run_experiment
 from event2vec.loss import (
@@ -37,7 +37,7 @@ class CARLVBFHiggs(ExperimentConfig):
 
     data_factory: VBFHLoader
     model_config: CARLQuadraticFormMLPConfig
-    train_config: TrainingConfig[LearnedLLR, QuadraticReweightableDataset]
+    train_config: TrainingConfig[LearnedLLR, ReweightableDataset]
     key: jax.Array
     study_points: dict[str, jax.Array]
 

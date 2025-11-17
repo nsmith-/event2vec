@@ -87,10 +87,10 @@ class BinarySampledParamLoss(LLRLoss):
 
         llr_pred = jax.vmap(model.llr_pred)(
             data.observables, param_0, param_1
-        )  # shape: (batch, 1) or (batch, B)
+        )  # shape: (batch,)
 
-        weight_param_0 = data.weight(param_0)  # shape: (batch, 1)
-        weight_param_1 = data.weight(param_1)  # shape: (batch, 1)
+        weight_param_0 = data.weight(param_0)  # shape: (batch,)
+        weight_param_1 = data.weight(param_1)  # shape: (batch,)
 
         if self.continuous_labels:
             sample_weight = (weight_param_0 + weight_param_1) / 2
@@ -126,8 +126,8 @@ class BinarySampledParamBinwiseLoss(BinwiseLoss):
         bin_llr = bin_llr_1 - bin_llr_0  # shape: (batch, B)
         bin_prob = jax.vmap(model.event_summary)(data.observables)  # shape: (batch, B)
 
-        weight_param_0 = data.weight(param_0)  # shape: (batch, 1)
-        weight_param_1 = data.weight(param_1)  # shape: (batch, 1)
+        weight_param_0 = data.weight(param_0)  # shape: (batch,)
+        weight_param_1 = data.weight(param_1)  # shape: (batch,)
 
         if self.continuous_labels:
             sample_weight = (weight_param_0 + weight_param_1) / 2
@@ -136,10 +136,12 @@ class BinarySampledParamBinwiseLoss(BinwiseLoss):
             target_label = jax.random.bernoulli(label_key, p=0.5, shape=(len(data),))
             sample_weight = jnp.where(target_label == 0, weight_param_0, weight_param_1)
 
-        bin_loss = jax.vmap(self.elementwise_loss, in_axes=(0, None))(
+        # outer vmap over batch, inner over bins
+        bin_loss = jax.vmap(jax.vmap(self.elementwise_loss, in_axes=(0, None)))(
             bin_llr, target_label
-        )
-        loss = (bin_loss * bin_prob).sum(axis=-1, keepdims=True)
+        )  # shape: (batch, B)
+        assert bin_loss.shape == bin_prob.shape
+        loss = (bin_loss * bin_prob).sum(axis=1)
 
         return (loss * sample_weight).mean() / sample_weight.mean()
 

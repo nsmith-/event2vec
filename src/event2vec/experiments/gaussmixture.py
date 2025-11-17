@@ -2,14 +2,19 @@ from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
 from pathlib import Path
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
-import equinox as eqx
 
 from event2vec.analysis import run_analysis
 from event2vec.datasets.gaussmixture import GaussMixtureDatasetFactory
 from event2vec.experiment import ExperimentConfig, run_experiment
-from event2vec.loss import BCELoss, BinarySampledParamLoss, MSELoss
+from event2vec.loss import (
+    BCELoss,
+    BinarySampledParamBinwiseLoss,
+    BinarySampledParamLoss,
+    MSELoss,
+)
 from event2vec.model import E2VMLPConfig
 from event2vec.prior import DirichletParameterPrior, UncorrelatedJointPrior
 from event2vec.training import MetricsHistory, TrainingConfig
@@ -45,6 +50,11 @@ class GaussianMixture(ExperimentConfig):
             default="mse",
             help="Loss function to use. (default: %(default)s)",
         )
+        parser.add_argument(
+            "--binwise",
+            action="store_true",
+            help="Use binwise loss instead of standard loss.",
+        )
 
     @classmethod
     def from_args(cls, args: Namespace) -> "GaussianMixture":
@@ -58,17 +68,29 @@ class GaussianMixture(ExperimentConfig):
             summary_dim=2,
             hidden_size=4,
             depth=3,
+            standard_scaler=True,
+            bin_probabilities=args.binwise,
+        )
+        elementwise_loss = MSELoss() if args.loss == "mse" else BCELoss()
+        loss_fn = (
+            BinarySampledParamBinwiseLoss(
+                parameter_prior=joint_prior,
+                continuous_labels=True,
+                elementwise_loss=elementwise_loss,
+            )
+            if args.binwise
+            else BinarySampledParamLoss(
+                parameter_prior=joint_prior,
+                continuous_labels=True,
+                elementwise_loss=elementwise_loss,
+            )
         )
         train_config = TrainingConfig(
             test_fraction=0.1,
             batch_size=128,
             learning_rate=0.005,
             epochs=args.epochs,
-            loss_fn=BinarySampledParamLoss(
-                parameter_prior=joint_prior,
-                continuous_labels=True,
-                elementwise_loss=MSELoss() if args.loss == "mse" else BCELoss(),
-            ),
+            loss_fn=loss_fn,
         )
         return cls(
             data_factory=data_factory,

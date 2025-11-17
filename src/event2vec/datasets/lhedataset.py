@@ -7,7 +7,6 @@ import pylhe
 
 from event2vec.dataset import ReweightableDataset, QuadraticReweightableDataset
 from event2vec.nontrainable import QuadraticFormNormalization
-from event2vec.shapes import ParamQuadVec
 from event2vec.util import EPS, standard_pbar, tril_outer_product
 
 
@@ -203,7 +202,7 @@ class VBFHDataset(QuadraticReweightableDataset):
         return self.gen_parameters.shape[0]
 
     @property
-    def quadratic_form(self) -> ParamQuadVec:
+    def quadratic_form(self):
         return self.latent_data
 
     @classmethod
