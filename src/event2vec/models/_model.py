@@ -18,8 +18,8 @@ class Model(FreezableModule):
 
 class MLP(Model):
     out_shape: tuple[int, ...]
-    layers: list[Callable]
-    activations: list[Callable]
+    layers: tuple[Callable, ...]
+    activations: tuple[Callable, ...]
     is_static: bool
 
     def __init__(
