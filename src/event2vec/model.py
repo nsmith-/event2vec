@@ -145,7 +145,7 @@ class CARLPSDMatrixLLR(AbstractPSDMatrixLLR):
         return coef @ coef.T
 
 
-MatrixT = TypeVar("MatrixT", bound=PSDMatrixModel)
+MatrixT = TypeVar("MatrixT", bound=PSDMatrixModel, covariant=True)
 
 
 class PSDMatrixLLR(AbstractPSDMatrixLLR, Generic[MatrixT]):
