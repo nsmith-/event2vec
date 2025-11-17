@@ -1,6 +1,6 @@
 import dataclasses
 from abc import abstractmethod
-from typing import Callable
+from typing import Callable, Generic, TypeVar
 
 import equinox as eqx
 import jax
@@ -8,7 +8,7 @@ import jax.numpy as jnp
 from jaxtyping import Array, Float, PRNGKeyArray
 
 from event2vec.dataset import QuadraticReweightableDataset, ReweightableDataset
-from event2vec.models.psd_matrix_models import PSDMatrixModel
+from event2vec.models._psd_matrix_models import PSDMatrixModel
 from event2vec.nontrainable import QuadraticFormNormalization, StandardScalerWrapper
 from event2vec.shapes import (
     LLRScalar,
@@ -22,7 +22,7 @@ from event2vec.shapes import (
 from event2vec.util import EPS, tril_outer_product
 
 
-class LearnedLLR(eqx.Module):
+class AbstractLLR(eqx.Module):
     """Abstract learned log-likelihood ratio model.
 
     This is a model that can predict the log-likelihood ratio between two parameter points,
@@ -36,7 +36,7 @@ class LearnedLLR(eqx.Module):
         raise NotImplementedError
 
 
-class VecDotLLR(LearnedLLR):
+class VecDotLLR(AbstractLLR):
     r"""A model that predicts a latent vector representation for both the observables and parameters.
 
     The resulting log-likelihood ratio is computed as the dot product of these two vectors:
@@ -64,7 +64,7 @@ class VecDotLLR(LearnedLLR):
         return bin_probs @ binwise_llr
 
 
-class PSDMatrixLLR(LearnedLLR):
+class AbstractPSDMatrixLLR(AbstractLLR):
     """A model that predicts a positive semi-definite matrix for the log-likelihood ratio dependence on the parameters.
 
     This is useful for models where the log-likelihood ratio has a quadratic dependence on the parameters.
@@ -76,7 +76,7 @@ class PSDMatrixLLR(LearnedLLR):
         raise NotImplementedError
 
 
-class CARLLinear_LearnedLLR(LearnedLLR):
+class CARLLinearLLR(AbstractLLR):
     """Classic SBI model which predicts the linear dependence of the likelihood ratio on the parameters."""
 
     model: Callable[[ObsVec], ParamVec]
@@ -92,8 +92,12 @@ class CARLLinear_LearnedLLR(LearnedLLR):
         return jnp.log(jnp.maximum(num / den, EPS))
 
 
-class CARLQuadratic_LearnedLLR(LearnedLLR):
-    """Classic SBI model which predicts the quadratic dependence of the likelihood ratio on the parameters."""
+class CARLQuadLLR(AbstractLLR):
+    """Classic SBI model which predicts the quadratic dependence of the likelihood ratio on the parameters.
+
+    Without any further structure, this model predicts the full quadratic form and might not guarantee positive semi-definiteness.
+    This can be addressed by using the CARLQuadraticForm_LearnedLLR model instead.
+    """
 
     model: Callable[[ObsVec], ParamQuadVec]
     """Mapping from observables to quadratic coefficients"""
@@ -110,13 +114,15 @@ class CARLQuadratic_LearnedLLR(LearnedLLR):
         return jnp.log(jnp.maximum(num / den, EPS))
 
 
-class CARLQuadraticForm_LearnedLLR(PSDMatrixLLR):
+class CARLPSDMatrixLLR(AbstractPSDMatrixLLR):
     r"""SBI model which predicts a variable-rank quadratic form for the log-likelihood ratio dependence on the parameters.
 
     This is taking advantage of the expected structure of the event weight:
     $w=\theta^\top A \theta$, where A is a positive semi-definite matrix, and can therefore be decomposed as
     $A = B B^\top$, where B may be generally of rank less than the dimension of $\theta$.
     Then $w = | B^\top \theta |^2$.
+
+    TODO: this is overlapping with PSDMatrixLLR using the At_A_Model; consider merging these two classes.
     """
 
     model: Callable[[ObsVec], Float[Array, " P*{self.rank}"]]
@@ -139,8 +145,11 @@ class CARLQuadraticForm_LearnedLLR(PSDMatrixLLR):
         return coef @ coef.T
 
 
-class PSDMatrixModel_LearnedLLR(PSDMatrixLLR):
-    psd_matrix_model: PSDMatrixModel
+MatrixT = TypeVar("MatrixT", bound=PSDMatrixModel)
+
+
+class PSDMatrixLLR(AbstractPSDMatrixLLR, Generic[MatrixT]):
+    psd_matrix_model: MatrixT
     normalization: QuadraticFormNormalization
 
     def llr_pred(
@@ -238,7 +247,7 @@ class CARLQuadraticFormMLPConfig:
                 model=model,
                 data=training_data.observables,
             )
-        return CARLQuadraticForm_LearnedLLR(
+        return CARLPSDMatrixLLR(
             model=model,
             normalization=training_data.normalization,
             rank=self.rank,
@@ -261,7 +270,7 @@ class CARLMLPConfig:
     def build(self, key: PRNGKeyArray, training_data: QuadraticReweightableDataset):
         """Build the model from the configuration."""
         ncoef = training_data.parameter_dim
-        cls = CARLQuadratic_LearnedLLR if self.quadratic else CARLLinear_LearnedLLR
+        cls = CARLQuadLLR if self.quadratic else CARLLinearLLR
         if self.quadratic:
             ncoef = ncoef * (ncoef + 1) // 2
         model = eqx.nn.MLP(

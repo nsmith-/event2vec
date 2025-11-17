@@ -1,4 +1,4 @@
-from ._psd_matrix_models import (
+from event2vec.models._psd_matrix_models import (
     At_A_Model,
     PSDMatrixModel,
     PSDMatrixModel_WithUD,

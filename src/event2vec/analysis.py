@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 
 from event2vec.dataset import ReweightableDataset
-from event2vec.model import LearnedLLR, VecDotLLR
+from event2vec.model import AbstractLLR, VecDotLLR
 from event2vec.training import MetricsHistory
 from event2vec.util import standard_pbar
 
@@ -126,7 +126,7 @@ def plot_vecfield(ax: Axes, model: VecDotLLR, observables: jax.Array):
 
 
 def study_point_analysis(
-    model: LearnedLLR,
+    model: AbstractLLR,
     data: ReweightableDataset,
     param_1: jax.Array,
     param_0: jax.Array,
@@ -167,7 +167,7 @@ def study_point_analysis(
 
 
 def run_analysis(
-    model: LearnedLLR,
+    model: AbstractLLR,
     data: ReweightableDataset,
     metrics: MetricsHistory,
     study_points: dict[str, jax.Array],

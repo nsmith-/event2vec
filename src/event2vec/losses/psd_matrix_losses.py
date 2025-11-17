@@ -1,4 +1,4 @@
-from ._psd_matrix_losses import (
+from event2vec.losses._psd_matrix_losses import (
     DiagMSELoss,
     FrobeniusNormLoss,
     HyperQuadNormLoss,

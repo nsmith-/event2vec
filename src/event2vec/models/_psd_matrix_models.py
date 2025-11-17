@@ -3,7 +3,7 @@ from dataclasses import KW_ONLY
 import equinox as eqx
 import jax.numpy as jnp
 
-from event2vec.models import Model
+from event2vec.models._model import Model
 
 
 class PSDMatrixModel(Model):

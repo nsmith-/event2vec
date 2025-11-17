@@ -9,11 +9,11 @@ from rich.progress import TextColumn
 
 from event2vec.dataset import ReweightableDataset
 from event2vec.loss import Loss
-from event2vec.model import LearnedLLR
+from event2vec.model import AbstractLLR
 from event2vec.util import standard_pbar
 from event2vec.utils import partition_trainable_and_static
 
-ModelT = TypeVar("ModelT", bound=LearnedLLR, contravariant=True)
+ModelT = TypeVar("ModelT", bound=AbstractLLR, contravariant=True)
 DatasetT = TypeVar("DatasetT", bound=ReweightableDataset, contravariant=True)
 
 

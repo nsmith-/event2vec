@@ -1,5 +1,5 @@
-from . import activations, psd_matrix_models
-from ._model import MLP, Model
+from event2vec.models import activations, psd_matrix_models
+from event2vec.models._model import MLP, Model
 
 __all__ = [
     "Model",

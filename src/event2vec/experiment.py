@@ -7,12 +7,12 @@ import jax
 from jaxtyping import PRNGKeyArray
 
 from event2vec.dataset import ReweightableDataset
-from event2vec.model import LearnedLLR
+from event2vec.model import AbstractLLR
 from event2vec.training import TrainingConfig
 
 DatasetT = TypeVar("DatasetT", bound=ReweightableDataset, covariant=True)
 ModelDatasetT = TypeVar("ModelDatasetT", bound=ReweightableDataset, contravariant=True)
-ModelT = TypeVar("ModelT", bound=LearnedLLR, covariant=True)
+ModelT = TypeVar("ModelT", bound=AbstractLLR, covariant=True)
 
 
 class DatasetFactory(Protocol[DatasetT]):

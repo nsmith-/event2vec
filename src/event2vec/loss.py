@@ -8,11 +8,11 @@ import optax
 from jaxtyping import Array, Float, PRNGKeyArray
 
 from event2vec.dataset import ReweightableDataset
-from event2vec.model import LearnedLLR, VecDotLLR
+from event2vec.model import AbstractLLR, VecDotLLR
 from event2vec.prior import JointParameterPrior
 from event2vec.shapes import LLRScalar
 
-M = TypeVar("M", bound=LearnedLLR, contravariant=True)
+M = TypeVar("M", bound=AbstractLLR, contravariant=True)
 D = TypeVar("D", bound=ReweightableDataset, contravariant=True)
 
 
@@ -34,7 +34,7 @@ class LLRLoss(eqx.Module):
 
     @abstractmethod
     def __call__(
-        self, model: LearnedLLR, data: ReweightableDataset, *, key: PRNGKeyArray
+        self, model: AbstractLLR, data: ReweightableDataset, *, key: PRNGKeyArray
     ) -> jax.Array:
         """Compute the loss for the model on the given dataset."""
         ...
@@ -74,7 +74,7 @@ class BinarySampledParamLoss(LLRLoss):
     elementwise_loss: ElementwiseLoss
 
     def __call__(
-        self, model: LearnedLLR, data: ReweightableDataset, *, key: PRNGKeyArray
+        self, model: AbstractLLR, data: ReweightableDataset, *, key: PRNGKeyArray
     ) -> jax.Array:
         """Compute the loss, sampling parameters from the prior.
 

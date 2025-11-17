@@ -17,7 +17,7 @@ from event2vec.loss import (
 )
 from event2vec.model import (
     CARLQuadraticFormMLPConfig,
-    LearnedLLR,
+    AbstractLLR,
 )
 from event2vec.prior import SMPlusNormalParameterPrior, UncorrelatedJointPrior
 from event2vec.training import MetricsHistory, TrainingConfig
@@ -38,7 +38,7 @@ class CARLVBFHiggs(ExperimentConfig):
 
     data_factory: VBFHLoader
     model_config: CARLQuadraticFormMLPConfig
-    train_config: TrainingConfig[LearnedLLR, ReweightableDataset]
+    train_config: TrainingConfig[AbstractLLR, ReweightableDataset]
     key: PRNGKeyArray
     study_points: dict[str, jax.Array]
 
