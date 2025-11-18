@@ -1,6 +1,6 @@
 import math
 from abc import abstractmethod
-from typing import Callable, Sequence
+from collections.abc import Callable, Sequence
 
 import equinox as eqx
 import jax

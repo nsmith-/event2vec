@@ -53,6 +53,8 @@ build.hooks.vcs.version-file = "src/event2vec/_version.py"
 features = ["test"]
 scripts.test = "pytest {args}"
 
+[tool.ruff]
+exclude = ["notebook"]
 
 [tool.ruff.lint]
 ignore = [
@@ -66,3 +68,6 @@ files = "src"
 [[tool.mypy.overrides]]
 module = ["awkward.*", "pylhe.*", "optax.*"]
 follow_untyped_imports = true
+
+[tool.codespell]
+ignore-regex = "[A-Za-z0-9+/]{100,}"

@@ -22,7 +22,7 @@ class ModelWrapper(Model, Generic[T]):
 
     is_static: bool = False
 
-    copy: InitVar[bool] = True
+    copy: InitVar[bool] = True  # type: ignore[assignment]
     "If True, a copy of the input object will be wrapped around."
 
     def __post_init__(self, copy: bool):
