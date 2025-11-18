@@ -12,6 +12,13 @@ pip install -e .
 e2vrun --help
 ```
 
+Or with `uv`, after cloning:
+
+```sh
+uv sync
+uv run e2vrun --help
+```
+
 ## Gaussian mixture example experiment:
 
 ```sh
