@@ -1,8 +1,8 @@
-from ._psd_matrix_losses import (
-    PSDMatrixLoss,
+from event2vec.losses._psd_matrix_losses import (
+    DiagMSELoss,
     FrobeniusNormLoss,
     HyperQuadNormLoss,
-    DiagMSELoss,
+    PSDMatrixLoss,
 )
 
 __all__ = [

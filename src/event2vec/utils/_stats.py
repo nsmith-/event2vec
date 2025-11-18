@@ -1,5 +1,5 @@
 import jax.numpy as jnp
-from jaxtyping import Float, Array
+from jaxtyping import Array, Float
 
 
 def mvn_first_moment(

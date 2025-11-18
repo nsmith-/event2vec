@@ -1,72 +1,111 @@
 import dataclasses
 from abc import abstractmethod
+from typing import Callable, Generic, TypeVar
 
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+from jaxtyping import Array, Float, PRNGKeyArray
 
 from event2vec.dataset import QuadraticReweightableDataset, ReweightableDataset
+from event2vec.models._psd_matrix_models import PSDMatrixModel
 from event2vec.nontrainable import QuadraticFormNormalization, StandardScalerWrapper
-from event2vec.util import EPS, ConstituentModel, tril_outer_product
+from event2vec.shapes import (
+    LLRScalar,
+    LLRVec,
+    ObsVec,
+    ParamQuadVec,
+    ParamVec,
+    ProbVec,
+    PSDMatrix,
+)
+from event2vec.util import EPS, tril_outer_product
 
-from event2vec.models.psd_matrix_models import PSDMatrixModel
 
+class AbstractLLR(eqx.Module):
+    """Abstract learned log-likelihood ratio model.
 
-class LearnedLLR(eqx.Module):
+    This is a model that can predict the log-likelihood ratio between two parameter points,
+    given the event observables. No assumptions are made about the internal structure of the model.
+    """
+
     @abstractmethod
     def llr_pred(
-        self, observables: jax.Array, param_0: jax.Array, param_1: jax.Array
-    ) -> jax.Array:
+        self, observables: ObsVec, param_0: ParamVec, param_1: ParamVec
+    ) -> LLRScalar:
         raise NotImplementedError
+
+
+class VecDotLLR(AbstractLLR):
+    r"""A model that predicts a latent vector representation for both the observables and parameters.
+
+    The resulting log-likelihood ratio is computed as the dot product of these two vectors:
+    $$ \hat{\ell}(x, \theta_0, \theta_1) = s(x) \cdot (\pi(\theta_1) - \pi(\theta_0)) $$
+
+    The event summary model $s(x)$ maps observables, and the parameter projection
+    model $\pi(\theta)$ maps parameters.
+
+    If this model is trained with a BinwiseLoss, then the event summary regresses to bin probabilities,
+    and the parameter projection regresses to bin average log-likelihood ratios.
+    Note that in this case the output of the event summary should be a probability vector
+    (e.g. using a softmax final activation)
+    """
+
+    event_summary: Callable[[ObsVec], ProbVec]
+    param_projection: Callable[[ParamVec], LLRVec]
+
+    def llr_pred(
+        self, observables: ObsVec, param_0: ParamVec, param_1: ParamVec
+    ) -> LLRScalar:
+        bin_probs = self.event_summary(observables)
+        binwise_llr_1 = self.param_projection(param_1)
+        binwise_llr_0 = self.param_projection(param_0)
+        binwise_llr = binwise_llr_1 - binwise_llr_0
+        return bin_probs @ binwise_llr
+
+
+class AbstractPSDMatrixLLR(AbstractLLR):
+    """A model that predicts a positive semi-definite matrix for the log-likelihood ratio dependence on the parameters.
+
+    This is useful for models where the log-likelihood ratio has a quadratic dependence on the parameters.
+    It is abstract to allow for different implementations of the PSD matrix prediction.
+    """
 
     @abstractmethod
-    def llr_prob(
-        self, observables: jax.Array, param_0: jax.Array, param_1: jax.Array
-    ) -> jax.Array | None:
+    def psd_matrix(self, observables: ObsVec) -> PSDMatrix:
         raise NotImplementedError
 
 
-class RegularVector_LearnedLLR(LearnedLLR):
-    """Event vector summary and parameter projection model."""
-
-    event_summary_model: ConstituentModel
-    param_projection_model: ConstituentModel
-
-    def llr_pred(self, observables, param_0, param_1):
-        summary = self.event_summary_model(observables)
-        projection = self.param_projection_model(param_1) - self.param_projection_model(
-            param_0
-        )
-
-        return summary @ projection
-
-    def llr_prob(self, observables, param_0, param_1):
-        return None
-
-
-class CARLLinear_LearnedLLR(LearnedLLR):
+class CARLLinearLLR(AbstractLLR):
     """Classic SBI model which predicts the linear dependence of the likelihood ratio on the parameters."""
 
-    model: ConstituentModel
+    model: Callable[[ObsVec], ParamVec]
+    """Mapping from observables to linear coefficients"""
     normalization: QuadraticFormNormalization
 
-    def llr_pred(self, observables, param_0, param_1):
+    def llr_pred(
+        self, observables: ObsVec, param_0: ParamVec, param_1: ParamVec
+    ) -> LLRScalar:
         coef = self.model(observables)
         num = (coef @ param_1) / self.normalization(param_1)
         den = (coef @ param_0) / self.normalization(param_0)
         return jnp.log(jnp.maximum(num / den, EPS))
 
-    def llr_prob(self, observables, param_0, param_1):
-        return None
 
+class CARLQuadLLR(AbstractLLR):
+    """Classic SBI model which predicts the quadratic dependence of the likelihood ratio on the parameters.
 
-class CARLQuadratic_LearnedLLR(LearnedLLR):
-    """Classic SBI model which predicts the quadratic dependence of the likelihood ratio on the parameters."""
+    Without any further structure, this model predicts the full quadratic form and might not guarantee positive semi-definiteness.
+    This can be addressed by using the CARLQuadraticForm_LearnedLLR model instead.
+    """
 
-    model: ConstituentModel
+    model: Callable[[ObsVec], ParamQuadVec]
+    """Mapping from observables to quadratic coefficients"""
     normalization: QuadraticFormNormalization
 
-    def llr_pred(self, observables, param_0, param_1):
+    def llr_pred(
+        self, observables: ObsVec, param_0: ParamVec, param_1: ParamVec
+    ) -> LLRScalar:
         param_0_quad = tril_outer_product(param_0)
         param_1_quad = tril_outer_product(param_1)
         coef = self.model(observables)
@@ -74,20 +113,20 @@ class CARLQuadratic_LearnedLLR(LearnedLLR):
         den = (coef @ param_0_quad) / self.normalization(param_0)
         return jnp.log(jnp.maximum(num / den, EPS))
 
-    def llr_prob(self, observables, param_0, param_1):
-        return None
 
-
-class CARLQuadraticForm_LearnedLLR(LearnedLLR):
+class CARLPSDMatrixLLR(AbstractPSDMatrixLLR):
     r"""SBI model which predicts a variable-rank quadratic form for the log-likelihood ratio dependence on the parameters.
 
     This is taking advantage of the expected structure of the event weight:
     $w=\theta^\top A \theta$, where A is a positive semi-definite matrix, and can therefore be decomposed as
     $A = B B^\top$, where B may be generally of rank less than the dimension of $\theta$.
     Then $w = | B^\top \theta |^2$.
+
+    TODO: this is overlapping with PSDMatrixLLR using the At_A_Model; consider merging these two classes.
     """
 
-    model: ConstituentModel
+    model: Callable[[ObsVec], Float[Array, " P*{self.rank}"]]
+    """Mapping from observables to low-rank estimate of quadratic coefficients"""
     normalization: QuadraticFormNormalization
     """Overall normalization (non-trainable)"""
     rank: int
@@ -101,56 +140,28 @@ class CARLQuadraticForm_LearnedLLR(LearnedLLR):
         llr_den = jnp.log(jnp.vecdot(pc0, pc0) / self.normalization(param_0))
         return llr_num - llr_den
 
-    def llr_prob(self, observables, param_0, param_1):
-        return None
+    def psd_matrix(self, observables: ParamVec) -> PSDMatrix:
+        coef = self.model(observables).reshape(-1, self.rank)
+        return coef @ coef.T
 
 
-class ProbOneHotConstMag_LearnedLLR(LearnedLLR):
-    """A model that predicts both the binwise log-likelihoods and the bin probabilities.
-
-    This can then be used with a hardmax on the bin probabilities to assign events to bins"""
-
-    binwise_ll_model: ConstituentModel
-    bin_prob_model: ConstituentModel
-
-    def llr_pred(self, observables, param_0, param_1):
-        return self.binwise_ll_model(param_1) - self.binwise_ll_model(param_0)
-
-    def llr_prob(self, observables, param_0, param_1):
-        return self.bin_prob_model(observables)
+MatrixT = TypeVar("MatrixT", bound=PSDMatrixModel, covariant=True)
 
 
-class PSDMatrixModel_LearnedLLR(LearnedLLR):
-    psd_matrix_model: PSDMatrixModel
-    avg_psd_matrix: jax.Array | None
+class PSDMatrixLLR(AbstractPSDMatrixLLR, Generic[MatrixT]):
+    psd_matrix_model: MatrixT
+    normalization: QuadraticFormNormalization
 
-    def __init__(self, psd_matrix_model: PSDMatrixModel, data_for_normalization=None):
-        self.psd_matrix_model = psd_matrix_model
-        if data_for_normalization is None:
-            self.avg_psd_matrix = None
-        else:
-            self.avg_psd_matrix = jax.vmap(self.psd_matrix_model)(
-                data_for_normalization.observables
-            ).mean(axis=0)
-
-    def llr_pred(self, observables, param_0, param_1):
+    def llr_pred(
+        self, observables: ObsVec, param_0: ParamVec, param_1: ParamVec
+    ) -> LLRScalar:
         psd_matrix = self.psd_matrix_model(observables)
-        likelihood_0 = jnp.vecdot((psd_matrix @ param_0), param_0)
-        likelihood_1 = jnp.vecdot((psd_matrix @ param_1), param_1)
+        l0 = jnp.vecdot((psd_matrix @ param_0), param_0) / self.normalization(param_0)
+        l1 = jnp.vecdot((psd_matrix @ param_1), param_1) / self.normalization(param_1)
+        return jnp.log(l1) - jnp.log(l0)
 
-        if self.avg_psd_matrix is not None:
-            likelihood_0 = likelihood_0 / jnp.vecdot(
-                (self.avg_psd_matrix @ param_0), param_0
-            )
-
-            likelihood_1 = likelihood_1 / jnp.vecdot(
-                (self.avg_psd_matrix @ param_1), param_1
-            )
-
-        return jnp.log(likelihood_1) - jnp.log(likelihood_0)
-
-    def llr_prob(self, observables, param_0, param_1):
-        return None
+    def psd_matrix(self, observables: ObsVec) -> PSDMatrix:
+        return self.psd_matrix_model(observables)
 
 
 @dataclasses.dataclass
@@ -165,18 +176,32 @@ class E2VMLPConfig:
     """Number of hidden layers in the MLPs."""
     standard_scaler: bool = False
     """Whether to standard scale the event observables."""
+    bin_probabilities: bool = False
+    """Whether to use a softmax final activation for the event summary to get bin probabilities."""
 
-    def build(self, key: jax.Array, training_data: ReweightableDataset):
+    def build(self, key: PRNGKeyArray, training_data: ReweightableDataset):
         """Build the model from the configuration."""
         key1, key2 = jax.random.split(key, 2)
-        event_summary = eqx.nn.MLP(
+        event_summary: Callable[[ObsVec], ParamVec] = eqx.nn.MLP(
             in_size=training_data.observable_dim,
             out_size=self.summary_dim,
             width_size=self.hidden_size,
             depth=self.depth,
             activation=jax.nn.leaky_relu,
+            # https://github.com/patrick-kidger/equinox/issues/1147
+            # final_activation=(
+            #     jax.nn.softmax if self.bin_probabilities else jax.nn.identity
+            # ),
             key=key1,
         )
+        if self.bin_probabilities:
+            # Manually add softmax final activation due to Equinox issue
+            old_event_summary = event_summary
+
+            def event_summary_with_softmax(x: ObsVec) -> ProbVec:
+                return jax.nn.softmax(old_event_summary(x))
+
+            event_summary = event_summary_with_softmax
         param_map = eqx.nn.MLP(
             in_size=training_data.parameter_dim,
             out_size=self.summary_dim,
@@ -190,9 +215,7 @@ class E2VMLPConfig:
                 model=event_summary,
                 data=training_data.observables,
             )
-        return RegularVector_LearnedLLR(
-            event_summary_model=event_summary, param_projection_model=param_map
-        )
+        return VecDotLLR(event_summary=event_summary, param_projection=param_map)
 
 
 @dataclasses.dataclass
@@ -208,7 +231,7 @@ class CARLQuadraticFormMLPConfig:
     standard_scaler: bool
     """Whether to standard scale the event observables."""
 
-    def build(self, key: jax.Array, training_data: QuadraticReweightableDataset):
+    def build(self, key: PRNGKeyArray, training_data: QuadraticReweightableDataset):
         """Build the model from the configuration."""
         model = eqx.nn.MLP(
             in_size=training_data.observable_dim,
@@ -224,7 +247,7 @@ class CARLQuadraticFormMLPConfig:
                 model=model,
                 data=training_data.observables,
             )
-        return CARLQuadraticForm_LearnedLLR(
+        return CARLPSDMatrixLLR(
             model=model,
             normalization=training_data.normalization,
             rank=self.rank,
@@ -244,10 +267,10 @@ class CARLMLPConfig:
     standard_scaler: bool = False
     """Whether to standard scale the event observables."""
 
-    def build(self, key: jax.Array, training_data: QuadraticReweightableDataset):
+    def build(self, key: PRNGKeyArray, training_data: QuadraticReweightableDataset):
         """Build the model from the configuration."""
         ncoef = training_data.parameter_dim
-        cls = CARLQuadratic_LearnedLLR if self.quadratic else CARLLinear_LearnedLLR
+        cls = CARLQuadLLR if self.quadratic else CARLLinearLLR
         if self.quadratic:
             ncoef = ncoef * (ncoef + 1) // 2
         model = eqx.nn.MLP(

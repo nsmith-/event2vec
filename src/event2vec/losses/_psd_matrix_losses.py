@@ -1,29 +1,29 @@
 from abc import abstractmethod
 from dataclasses import KW_ONLY
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
-from jaxtyping import Float, Array, PRNGKeyArray
+from jaxtyping import Array, Float, PRNGKeyArray
 
-from event2vec.models.psd_matrix_models import PSDMatrixModel, PSDMatrixModel_WithUD
-from event2vec.losses import Loss
-
+from event2vec.dataset import QuadraticReweightableDataset
+from event2vec.model import AbstractPSDMatrixLLR, PSDMatrixLLR
+from event2vec.models.psd_matrix_models import PSDMatrixModel_WithUD
 from event2vec.util import tril_to_matrix
-from event2vec.dataset import ReweightableDataset
 
 ## TODO: Implement non-redundant versions of these losses?
 
 
-class PSDMatrixLoss(Loss):
+class PSDMatrixLoss(eqx.Module):
     def __call__(
         self,
-        model: PSDMatrixModel,
-        data: ReweightableDataset,
+        model: AbstractPSDMatrixLLR,
+        data: QuadraticReweightableDataset,
         *,
-        key: PRNGKeyArray | None = None,
+        key: PRNGKeyArray,
     ) -> Float[Array, ""]:
-        pred_matrices = jax.vmap(model)(data.observables)
-        label_matrices = tril_to_matrix(data.latent_data)
+        pred_matrices = jax.vmap(model.psd_matrix)(data.observables)
+        label_matrices = tril_to_matrix(data.quadratic_form)
 
         return (
             jax.vmap(self._per_datapoint_loss)(pred_matrices, label_matrices)
@@ -36,18 +36,18 @@ class PSDMatrixLoss(Loss):
         raise NotImplementedError
 
 
-class PSDMatrixLoss_DiagOnly(Loss):
+class PSDMatrixLoss_DiagOnly(eqx.Module):
     def __call__(
         self,
-        model: PSDMatrixModel_WithUD,
-        data: ReweightableDataset,
+        model: PSDMatrixLLR[PSDMatrixModel_WithUD],
+        data: QuadraticReweightableDataset,
         *,
-        key: PRNGKeyArray | None = None,
+        key: PRNGKeyArray,
     ) -> Float[Array, ""]:
-        pred_diags = jax.vmap(model.D_model)(data.observables)
+        pred_diags = jax.vmap(model.psd_matrix_model.D_model)(data.observables)
 
-        label_matrices = tril_to_matrix(data.latent_data)
-        U_matrices = jax.vmap(model.U_model)(data.observables)
+        label_matrices = tril_to_matrix(data.quadratic_form)
+        U_matrices = jax.vmap(model.psd_matrix_model.U_model)(data.observables)
 
         label_diags = jnp.empty_like(pred_diags)
         for i in range(pred_diags.shape[-1]):
