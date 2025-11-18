@@ -1,13 +1,14 @@
 """Non-trainable modules for use in defining model architectures."""
 
-from abc import abstractmethod
 import warnings
-import equinox as eqx
+from abc import abstractmethod
+from typing import Callable
 
-from event2vec.util import ConstituentModel
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 
+from event2vec.shapes import ParamVec
 from event2vec.util import tril_to_matrix
 
 
@@ -55,13 +56,13 @@ class StandardScalerWrapper(eqx.Module):
     """
 
     scaler: StandardScaler
-    model: ConstituentModel
+    model: Callable[[jax.Array], jax.Array]
 
     def __call__(self, x: jax.Array) -> jax.Array:
         return self.model(self.scaler(x))
 
     @classmethod
-    def build(cls, model: ConstituentModel, data: jax.Array):
+    def build(cls, model: Callable[[jax.Array], jax.Array], data: jax.Array):
         mean = jnp.mean(data, axis=0)
         std = jnp.std(data, axis=0)
         return cls(scaler=StandardScaler(mean, std), model=model)
@@ -91,7 +92,7 @@ class QuadraticFormNormalization(Normalization):
     TODO: should this be Cholesky or other decomposition instead?
     """
 
-    def __call__(self, params: jax.Array) -> jax.Array:
+    def __call__(self, params: ParamVec) -> jax.Array:
         """Return normalization for given parameters (scalar)."""
         pc = params @ self.sqrtcoef
         return jnp.vecdot(pc, pc)

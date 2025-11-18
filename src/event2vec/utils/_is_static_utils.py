@@ -1,10 +1,10 @@
-from typing import Callable, Sequence
+from typing import Callable, Sequence, TypeVar
 
-import jax
 import equinox as eqx
+import jax
 from jaxtyping import PyTree
 
-from event2vec.nontrainable import NonTrainableModule, FreezableModule
+from event2vec.nontrainable import FreezableModule, NonTrainableModule
 
 
 def partition_trainable_and_static(pytree: PyTree) -> tuple[PyTree, PyTree]:
@@ -16,7 +16,10 @@ def partition_trainable_and_static(pytree: PyTree) -> tuple[PyTree, PyTree]:
     )
 
 
-def set_is_static(model: FreezableModule, is_static_value: bool):
+T = TypeVar("T", bound=FreezableModule)
+
+
+def set_is_static(model: T, is_static_value: bool) -> T:
     """Returns a copy of model, with the given is_static value."""
 
     if not isinstance(model, FreezableModule):
@@ -29,11 +32,14 @@ def set_is_static(model: FreezableModule, is_static_value: bool):
     )
 
 
+TreeT = TypeVar("TreeT", bound=PyTree)
+
+
 def set_is_static_at(
-    where: Callable[[PyTree], FreezableModule | Sequence[FreezableModule]],
-    pytree: PyTree,
+    where: Callable[[TreeT], FreezableModule | Sequence[FreezableModule]],
+    pytree: TreeT,
     is_static_value: bool,
-) -> PyTree:
+) -> TreeT:
     """Returns a copy of pytree, with the is_static attribute of either
         i) a specific FreezableModule instance or
         ii) a sequence of FreezableModule instances
@@ -77,8 +83,8 @@ def set_is_static_at(
 
 
 def set_is_static_at_node(
-    pytree: PyTree, node: FreezableModule, is_static_value: bool
-) -> PyTree:
+    pytree: TreeT, node: FreezableModule, is_static_value: bool
+) -> TreeT:
     """Returns a copy of pytree, with node.is_static set to is_static_value.
 
     The original pytree and node are unaffected. All nodes of the returned

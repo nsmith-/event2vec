@@ -3,6 +3,7 @@ import dataclasses
 import jax
 import jax.numpy as jnp
 import jax.scipy.stats as jstats
+from jaxtyping import PRNGKeyArray
 
 from event2vec.dataset import ReweightableDataset
 from event2vec.prior import ParameterPrior
@@ -19,7 +20,7 @@ COVARIANCES = jnp.array(
 """Covariance matrices of the multivariate normal distributions used in the toy model."""
 
 
-def _sample_event(param: jax.Array, *, key: jax.Array):
+def _sample_event(param: jax.Array, *, key: PRNGKeyArray):
     if param.shape[-1] != COVARIANCES.shape[0]:
         raise ValueError(
             f"Parameter vector ({param.shape[-1]}) must match number of distributions ({COVARIANCES.shape[0]})"
@@ -56,6 +57,8 @@ class GaussMixtureDataset(ReweightableDataset):
         return 3
 
     def likelihood(self, param: jax.Array) -> jax.Array:
+        # TODO: param is only (num_events, 3) if called from weight() since gen_parameters is (num_events, 3)
+        # fix by making DatasetWithLikelihood a subclass of ReweightableDataset, and handle specially there
         if param.shape == (3,):
             # Expand dimensions for vmap (as gen_parameters would be (num_events, 3))
             param = jnp.repeat(param[None, :], len(self), axis=0)
@@ -71,7 +74,7 @@ class GaussMixtureDatasetFactory:
     param_prior: ParameterPrior
     """Prior distribution for the parameters of the dataset."""
 
-    def __call__(self, *, key: jax.Array) -> GaussMixtureDataset:
+    def __call__(self, *, key: PRNGKeyArray) -> GaussMixtureDataset:
         param_key, event_key = jax.random.split(key)
         param = jax.vmap(self.param_prior.sample)(
             key=jax.random.split(param_key, self.len)

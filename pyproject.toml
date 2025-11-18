@@ -10,7 +10,7 @@ authors = [
 ]
 description = "event2vec: Learning Event Representations for Effective Field Theories"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 1 - Planning",
   "Intended Audience :: Science/Research",
@@ -58,3 +58,11 @@ scripts.test = "pytest {args}"
 ignore = [
   "F722", # syntax error in forward annotation (used by jaxtyping)
 ]
+
+[tool.mypy]
+python_version = "3.11"
+files = "src"
+
+[[tool.mypy.overrides]]
+module = ["awkward.*", "pylhe.*", "optax.*"]
+follow_untyped_imports = true

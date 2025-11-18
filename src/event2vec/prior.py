@@ -3,6 +3,7 @@ from abc import abstractmethod
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+from jaxtyping import PRNGKeyArray
 
 # TODO: use regular dataclasses rather than equinox for non-neural-net modules?
 # This would fix the non-faithful repr issue when printing these objects.
@@ -16,7 +17,7 @@ class ParameterPrior(eqx.Module):
     """
 
     @abstractmethod
-    def sample(self, key: jax.Array) -> jax.Array:
+    def sample(self, key: PRNGKeyArray) -> jax.Array:
         """Sample parameters from the prior distribution."""
         raise NotImplementedError("This method should be implemented by subclasses.")
 
@@ -28,7 +29,7 @@ class JointParameterPrior(eqx.Module):
     """
 
     @abstractmethod
-    def sample(self, key: jax.Array) -> tuple[jax.Array, jax.Array]:
+    def sample(self, key: PRNGKeyArray) -> tuple[jax.Array, jax.Array]:
         """Sample two parameter points from the joint prior distribution."""
         raise NotImplementedError("This method should be implemented by subclasses.")
 
@@ -40,7 +41,7 @@ class DirichletParameterPrior(ParameterPrior):
 
     alpha: jax.Array
 
-    def sample(self, key: jax.Array) -> jax.Array:
+    def sample(self, key: PRNGKeyArray) -> jax.Array:
         return jax.random.dirichlet(key, alpha=self.alpha)
 
 
@@ -52,7 +53,7 @@ class NormalParameterPrior(ParameterPrior):
     mean: jax.Array
     cov: jax.Array
 
-    def sample(self, key: jax.Array) -> jax.Array:
+    def sample(self, key: PRNGKeyArray) -> jax.Array:
         return jax.random.multivariate_normal(key, mean=self.mean, cov=self.cov)
 
 
@@ -64,7 +65,7 @@ class SMPlusNormalParameterPrior(ParameterPrior):
     cov: jax.Array
     "covariance for all parameters except the first"
 
-    def sample(self, key: jax.Array) -> jax.Array:
+    def sample(self, key: PRNGKeyArray) -> jax.Array:
         return (
             jnp.ones(shape=(len(self.mean) + 1,))
             .at[1:]
@@ -77,6 +78,6 @@ class UncorrelatedJointPrior(JointParameterPrior):
 
     prior: ParameterPrior
 
-    def sample(self, key: jax.Array) -> tuple[jax.Array, jax.Array]:
+    def sample(self, key: PRNGKeyArray) -> tuple[jax.Array, jax.Array]:
         key1, key2 = jax.random.split(key)
         return self.prior.sample(key1), self.prior.sample(key2)
