@@ -4,7 +4,7 @@
 ###################### GENERATED TUE JUL 26 10:44:34 2016 ######################
 ################################################################################
 
-BLOCK mass # 
+BLOCK mass #
     1    +4.80000e-03 # Mu
     2    +2.30000e-03 # Md
     3    +9.50000e-02 # Ms
@@ -17,7 +17,7 @@ BLOCK mass #
     24   +8.03850e+01 # MW
     25   +1.25000e+02 # MH
 
-BLOCK sminputs # 
+BLOCK sminputs #
     1    +1.27916e+02 # aEWM1
     2    +1.16638e-05 # Gf
     3    +1.18400e-01 # aS
@@ -53,10 +53,10 @@ BLOCK IMVCKM
 ## INFORMATION FOR HISZ BASIS
 ###################################
 
-BLOCK basis # 
+BLOCK basis #
     1    hisz # translated basis
 
-BLOCK EVEN # 
+BLOCK EVEN #
     1    +0.00000e+00 # fGG
     2    +0.00000e+00 # fBB
     3    +0.00000e+00 # fWW
@@ -65,10 +65,10 @@ BLOCK EVEN #
     6    +0.00000e+00 # fWWW
     7    +0.00000e+00 # fH2
 
-BLOCK LAMBDA # 
+BLOCK LAMBDA #
     1    +1.00000e+03 # Lam
 
-BLOCK ODD # 
+BLOCK ODD #
     1    +0.00000e+00 # tfGG
     2    +0.00000e+00 # tfBB
     3    +0.00000e+00 # tfWW
@@ -142,13 +142,13 @@ BLOCK IMHZxu
     3   3    +0.00000e+00 # Ifu3x3
 
 #        PDG        Width
-DECAY    23         +2.49520e+00 # 
+DECAY    23         +2.49520e+00 #
 
 #        PDG        Width
-DECAY    24         +2.08500e+00 # 
+DECAY    24         +2.08500e+00 #
 
 #        PDG        Width
-DECAY    6          +1.49150e+00 # 
+DECAY    6          +1.49150e+00 #
 
 ################################################################################
 ################################################################################

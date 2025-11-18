@@ -1,0 +1,34 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - v*.*.*
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pre-commit:
+    name: pre-commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --hook-stage manual --all-files
+
+  pass:
+    needs: [pre-commit]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "All jobs passed"

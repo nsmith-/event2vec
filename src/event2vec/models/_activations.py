@@ -21,7 +21,7 @@ class ExpAffineLogistic(Model):
 
     log_min: Float[Array, "#N"]
     log_max: Float[Array, "#N"]
-    copy: InitVar[bool] = True
+    copy: InitVar[bool] = True  # type: ignore[assignment]
 
     def __post_init__(self, copy):
         self.log_min = jnp.array(self.log_min, copy=copy)

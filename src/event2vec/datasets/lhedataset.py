@@ -180,12 +180,12 @@ class VBFHDataset(QuadraticReweightableDataset):
     """The observed data points, shape (num_events, obs_dim)"""
     gen_parameters: jax.Array
     """The parameters used to sample this event, shape (6,)
-    
+
     Names: cSM, cHbox, cHDD, cHW, cHB, cHWB
     """
     latent_data: jax.Array
     r"""The event weight coefficients, shape (num_events, num_coeffs)
-    
+
     This is $\frac{\theta^T A(z) \theta}{\theta_g^T A(z) \theta_g}$ where $A(z)$ is the matrix of coefficients for event z,
     and $\theta_g$ are the generation parameters.
     """

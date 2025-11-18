@@ -29,7 +29,7 @@ cHW -0.006461748225
 from rosetta import HISZ
 
 
-def rotate(input_dat:str):
+def rotate(input_dat: str):
     hisz = HISZ.HISZ(input_dat)
 
     print("In HISZ basis:")
@@ -37,7 +37,6 @@ def rotate(input_dat:str):
         val = hisz[coef]
         if abs(val) > 1e-10:
             print(coef, val)
-
 
     warsaw = hisz.translate("warsaw")
     print("In Warsaw basis:")

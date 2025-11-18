@@ -1,4 +1,5 @@
-from typing import Callable, Sequence, TypeVar
+from typing import TypeVar
+from collections.abc import Callable, Sequence
 
 import equinox as eqx
 import jax
