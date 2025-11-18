@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -529,7 +529,7 @@ requires-dist = [
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "optax" },
-    { name = "pylhe" },
+    { name = "pylhe", specifier = ">=1.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=6" },
     { name = "rich", extras = ["jupyter"] },
 ]
@@ -1614,7 +1614,7 @@ wheels = [
 
 [[package]]
 name = "pylhe"
-version = "0.9.3"
+version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "awkward" },
@@ -1622,9 +1622,9 @@ dependencies = [
     { name = "particle" },
     { name = "vector" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e1/3e/78333759c434d22e51fc0f5d2a84f7bc444abd7cbd8d1ef08fb66e0224cb/pylhe-0.9.3.tar.gz", hash = "sha256:e3db5ef3b4884fee422935ff4c3b0cae304823abf6f54026a40af7626927bb36", size = 22129, upload-time = "2025-09-02T16:23:42.154Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/dd/1af3a060b96a00c36d955ec606803bf6fa7eb94cb5c29c7301458bb406fd/pylhe-1.0.1.tar.gz", hash = "sha256:55e00f8e0dd4f246c6876ed3990d6ca5b293e6c06525d47c463a4c11714b7a69", size = 29306, upload-time = "2025-10-31T15:04:43.235Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/65/218f98fc9db548b7278185ab6221ef2676af61424a2c93d56f9007b59178/pylhe-0.9.3-py3-none-any.whl", hash = "sha256:9ff7eaa9fa7f5c7a3b9adc411294b1d8bc3d1b992bc6116ea0fb425ced0f5eda", size = 16013, upload-time = "2025-09-02T16:23:40.565Z" },
+    { url = "https://files.pythonhosted.org/packages/6f/14/8906d4e9acd6e9c0eb1146908c358015fb3ca01e3886954077d8c7f8e808/pylhe-1.0.1-py3-none-any.whl", hash = "sha256:9e738d3e3b061bfa793495e179c71f3854ae8b4a9fcb6e3977a8b41162cec59d", size = 19328, upload-time = "2025-10-31T15:04:41.779Z" },
 ]
 
 [[package]]
