@@ -1,18 +1,15 @@
 import dataclasses
+from collections.abc import Callable
+
 import equinox as eqx
 import jax
+import jax.numpy as jnp
 from jaxtyping import Array, Float, PRNGKeyArray
+
 from event2vec.dataset import QuadraticReweightableDataset
 from event2vec.model import AbstractLLR, AbstractPSDMatrixLLR
 from event2vec.nontrainable import QuadraticFormNormalization, StandardScalerWrapper
-from event2vec.shapes import LLRScalar, ObsVec, PSDMatrix, ParamQuadVec, ParamVec
-
-
-import jax.numpy as jnp
-
-
-from collections.abc import Callable
-
+from event2vec.shapes import LLRScalar, ObsVec, ParamQuadVec, ParamVec, PSDMatrix
 from event2vec.util import EPS, tril_outer_product
 
 

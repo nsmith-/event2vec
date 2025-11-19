@@ -1,14 +1,14 @@
 import dataclasses
-import jax
-from event2vec.dataset import ReweightableDataset
+from collections.abc import Callable
+
 import equinox as eqx
+import jax
 from jaxtyping import PRNGKeyArray
+
+from event2vec.dataset import ReweightableDataset
 from event2vec.model import AbstractLLR
 from event2vec.nontrainable import StandardScalerWrapper
 from event2vec.shapes import LLRScalar, LLRVec, ObsVec, ParamVec, ProbVec
-
-
-from collections.abc import Callable
 
 
 class VecDotLLR(AbstractLLR):

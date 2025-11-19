@@ -8,8 +8,7 @@ from jaxtyping import Array, Float, PRNGKeyArray
 
 from event2vec.dataset import QuadraticReweightableDataset
 from event2vec.model import AbstractPSDMatrixLLR
-from event2vec.models.psd_matrix_models import PSDMatrixLLR
-from event2vec.models.psd_matrix_models import PSDMatrixModel_WithUD
+from event2vec.models.psd_matrix_models import PSDMatrixLLR, PSDMatrixModel_WithUD
 from event2vec.util import tril_to_matrix
 
 ## TODO: Implement non-redundant versions of these losses?

@@ -59,8 +59,14 @@ scripts.test = "pytest {args}"
 exclude = ["notebook"]
 
 [tool.ruff.lint]
+select = [
+  "E",  # all errors
+  "F",  # all pyflakes checks
+  "I",  # import-related checks
+]
 ignore = [
   "F722", # syntax error in forward annotation (used by jaxtyping)
+  "E501", # line too long (comments and docstrings, code will be formatted with ruff)
 ]
 
 [tool.mypy]
