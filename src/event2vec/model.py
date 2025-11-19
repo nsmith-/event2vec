@@ -2,6 +2,7 @@ from abc import abstractmethod
 
 import equinox as eqx
 
+from event2vec.nontrainable import FreezableModule
 from event2vec.shapes import (
     LLRScalar,
     ObsVec,
@@ -34,3 +35,14 @@ class AbstractPSDMatrixLLR(AbstractLLR):
     @abstractmethod
     def psd_matrix(self, observables: ObsVec) -> PSDMatrix:
         raise NotImplementedError
+
+
+class Model(FreezableModule):
+    """A constituent model that may be used inside implementations of AbstractLLR"""
+
+    @abstractmethod
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError
+
+
+# TODO: class ObservableEmbeddingModel(Model): ...

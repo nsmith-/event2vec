@@ -1,7 +1,7 @@
 from copy import deepcopy
 from dataclasses import KW_ONLY, InitVar
 
-from event2vec.models import Model
+from event2vec.model import Model
 
 
 class ModelWrapper[T](Model):

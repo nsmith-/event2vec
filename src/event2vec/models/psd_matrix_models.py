@@ -4,7 +4,7 @@ import equinox as eqx
 import jax.numpy as jnp
 
 from event2vec.model import AbstractPSDMatrixLLR
-from event2vec.models._model import Model
+from event2vec.model import Model
 from event2vec.nontrainable import QuadraticFormNormalization
 from event2vec.shapes import LLRScalar, ObsVec, PSDMatrix, ParamVec
 
