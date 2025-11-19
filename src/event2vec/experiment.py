@@ -8,7 +8,7 @@ from jaxtyping import PRNGKeyArray
 
 from event2vec.dataset import ReweightableDataset
 from event2vec.model import AbstractLLR
-from event2vec.training import TrainingConfig
+from event2vec.training import TrainingConfig, train
 
 
 class DatasetFactory[DatasetT: ReweightableDataset](Protocol):
@@ -62,7 +62,8 @@ def run_experiment[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
     data = data_factory(key=data_key)
     # TODO: restrict to training data only (train-test split needs to move out of train_config.train)
     model = model_config.build(key=model_key, training_data=data)
-    model, loss_train, loss_test = train_config.train(
+    model, loss_train, loss_test = train(
+        config=train_config,
         model=model,
         data=data,
         key=train_key,

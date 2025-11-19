@@ -38,22 +38,8 @@ class TrainingConfig[ModelT: AbstractLLR, DatasetT: ReweightableDataset]:
     loss_fn: Loss[ModelT, DatasetT]
     """Loss function to use for training."""
 
-    def train(
-        self, model: ModelT, data: DatasetT, key: PRNGKeyArray
-    ) -> tuple[ModelT, list[float], list[float]]:
-        """Train the model using the specified configuration.
 
-        TODO: replace lists with a MetricsHistory object.
-        """
-        return _train(
-            config=self,
-            model=model,
-            data=data,
-            key=key,
-        )
-
-
-def _train[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
+def train[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
     config: TrainingConfig[ModelT, DatasetT],
     *,
     model: ModelT,
