@@ -1,6 +1,5 @@
 import dataclasses
 from abc import abstractmethod
-from typing import Generic, TypeVar
 from collections.abc import Callable
 
 import equinox as eqx
@@ -146,10 +145,7 @@ class CARLPSDMatrixLLR(AbstractPSDMatrixLLR):
         return coef @ coef.T
 
 
-MatrixT = TypeVar("MatrixT", bound=PSDMatrixModel, covariant=True)
-
-
-class PSDMatrixLLR(AbstractPSDMatrixLLR, Generic[MatrixT]):
+class PSDMatrixLLR[MatrixT: PSDMatrixModel](AbstractPSDMatrixLLR):
     psd_matrix_model: MatrixT
     normalization: QuadraticFormNormalization
 

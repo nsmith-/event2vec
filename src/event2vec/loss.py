@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Protocol, TypeVar
+from typing import Protocol
 
 import equinox as eqx
 import jax
@@ -12,11 +12,8 @@ from event2vec.model import AbstractLLR, VecDotLLR
 from event2vec.prior import JointParameterPrior
 from event2vec.shapes import LLRScalar
 
-M = TypeVar("M", bound=AbstractLLR, contravariant=True)
-D = TypeVar("D", bound=ReweightableDataset, contravariant=True)
 
-
-class Loss(Protocol[M, D]):
+class Loss[ModelT: AbstractLLR, DatasetT: ReweightableDataset](Protocol):
     """Loss protocol for training models.
 
     Models and datasets are generic type variables to allow for more specific
@@ -24,7 +21,9 @@ class Loss(Protocol[M, D]):
     """
 
     @abstractmethod
-    def __call__(self, model: M, data: D, *, key: PRNGKeyArray) -> jax.Array:
+    def __call__(
+        self, model: ModelT, data: DatasetT, *, key: PRNGKeyArray
+    ) -> jax.Array:
         """Compute the loss for the model on the given dataset."""
         ...
 
