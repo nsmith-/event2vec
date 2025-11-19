@@ -3,6 +3,7 @@ from event2vec.models._psd_matrix_models import (
     PSDMatrixModel,
     PSDMatrixModel_WithUD,
     U_sqrtD_At_A_sqrtD_Ut_Model,
+    PSDMatrixLLR,
 )
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "PSDMatrixModel_WithUD",
     "At_A_Model",
     "U_sqrtD_At_A_sqrtD_Ut_Model",
+    "PSDMatrixLLR",
 ]

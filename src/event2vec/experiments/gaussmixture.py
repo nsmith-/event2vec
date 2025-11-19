@@ -16,7 +16,7 @@ from event2vec.loss import (
     BinarySampledParamLoss,
     MSELoss,
 )
-from event2vec.model import E2VMLPConfig
+from event2vec.models.vecdot import E2VMLPConfig
 from event2vec.prior import DirichletParameterPrior, UncorrelatedJointPrior
 from event2vec.training import MetricsHistory, TrainingConfig
 

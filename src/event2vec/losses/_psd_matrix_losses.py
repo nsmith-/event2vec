@@ -7,7 +7,8 @@ import jax.numpy as jnp
 from jaxtyping import Array, Float, PRNGKeyArray
 
 from event2vec.dataset import QuadraticReweightableDataset
-from event2vec.model import AbstractPSDMatrixLLR, PSDMatrixLLR
+from event2vec.model import AbstractPSDMatrixLLR
+from event2vec.models._psd_matrix_models import PSDMatrixLLR
 from event2vec.models.psd_matrix_models import PSDMatrixModel_WithUD
 from event2vec.util import tril_to_matrix
 

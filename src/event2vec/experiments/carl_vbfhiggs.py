@@ -16,9 +16,9 @@ from event2vec.loss import (
     BinarySampledParamLoss,
 )
 from event2vec.model import (
-    CARLQuadraticFormMLPConfig,
     AbstractLLR,
 )
+from event2vec.models.carl import CARLQuadraticFormMLPConfig
 from event2vec.prior import SMPlusNormalParameterPrior, UncorrelatedJointPrior
 from event2vec.training import MetricsHistory, TrainingConfig
 

@@ -3,7 +3,10 @@ from dataclasses import KW_ONLY
 import equinox as eqx
 import jax.numpy as jnp
 
+from event2vec.model import AbstractPSDMatrixLLR
 from event2vec.models._model import Model
+from event2vec.nontrainable import QuadraticFormNormalization
+from event2vec.shapes import LLRScalar, ObsVec, PSDMatrix, ParamVec
 
 
 class PSDMatrixModel(Model):
@@ -83,3 +86,19 @@ class U_sqrtD_At_A_sqrtD_Ut_Model(PSDMatrixModel_WithUD):
         tmp = (A * jnp.sqrt(D)) @ U.T
 
         return tmp.T @ tmp
+
+
+class PSDMatrixLLR[MatrixT: PSDMatrixModel](AbstractPSDMatrixLLR):
+    psd_matrix_model: MatrixT
+    normalization: QuadraticFormNormalization
+
+    def llr_pred(
+        self, observables: ObsVec, param_0: ParamVec, param_1: ParamVec
+    ) -> LLRScalar:
+        psd_matrix = self.psd_matrix_model(observables)
+        l0 = jnp.vecdot((psd_matrix @ param_0), param_0) / self.normalization(param_0)
+        l1 = jnp.vecdot((psd_matrix @ param_1), param_1) / self.normalization(param_1)
+        return jnp.log(l1) - jnp.log(l0)
+
+    def psd_matrix(self, observables: ObsVec) -> PSDMatrix:
+        return self.psd_matrix_model(observables)
