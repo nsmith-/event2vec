@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 
 from event2vec.dataset import ReweightableDataset
-from event2vec.model import AbstractLLR, VecDotLLR
+from event2vec.model import AbstractLLR
+from event2vec.models.vecdot import VecDotLLR
 from event2vec.training import MetricsHistory
 from event2vec.util import standard_pbar
 

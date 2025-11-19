@@ -1,5 +1,4 @@
 import math
-from abc import abstractmethod
 from collections.abc import Callable, Sequence
 
 import equinox as eqx
@@ -7,13 +6,7 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import Array, PRNGKeyArray
 
-from event2vec.nontrainable import FreezableModule
-
-
-class Model(FreezableModule):
-    @abstractmethod
-    def __call__(self, *args, **kwargs):
-        raise NotImplementedError
+from event2vec.model import Model
 
 
 class MLP(Model):

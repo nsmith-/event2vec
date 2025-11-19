@@ -8,7 +8,8 @@ import optax
 from jaxtyping import Array, Float, PRNGKeyArray
 
 from event2vec.dataset import ReweightableDataset
-from event2vec.model import AbstractLLR, VecDotLLR
+from event2vec.model import AbstractLLR
+from event2vec.models.vecdot import VecDotLLR
 from event2vec.prior import JointParameterPrior
 from event2vec.shapes import LLRScalar
 

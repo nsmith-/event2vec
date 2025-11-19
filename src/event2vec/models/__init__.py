@@ -1,8 +1,7 @@
 from event2vec.models import activations, psd_matrix_models
-from event2vec.models._model import MLP, Model
+from event2vec.models.mlp import MLP
 
 __all__ = [
-    "Model",
     "MLP",
     "activations",
     "psd_matrix_models",
