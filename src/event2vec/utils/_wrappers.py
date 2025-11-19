@@ -1,13 +1,10 @@
 from copy import deepcopy
 from dataclasses import KW_ONLY, InitVar
-from typing import Generic, TypeVar
 
 from event2vec.models import Model
 
-T = TypeVar("T")
 
-
-class ModelWrapper(Model, Generic[T]):
+class ModelWrapper[T](Model):
     """Wraps an input object into an instance of (a final subclass of) Model.
 
     The wrapped object can be accessed either as

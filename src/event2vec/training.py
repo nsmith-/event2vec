@@ -1,5 +1,4 @@
 import dataclasses
-from typing import Generic, TypeVar
 
 import equinox as eqx
 import jax
@@ -13,9 +12,6 @@ from event2vec.model import AbstractLLR
 from event2vec.util import standard_pbar
 from event2vec.utils import partition_trainable_and_static
 
-ModelT = TypeVar("ModelT", bound=AbstractLLR, contravariant=True)
-DatasetT = TypeVar("DatasetT", bound=ReweightableDataset, contravariant=True)
-
 
 @dataclasses.dataclass
 class MetricsHistory:
@@ -28,7 +24,7 @@ class MetricsHistory:
 
 
 @dataclasses.dataclass
-class TrainingConfig(Generic[ModelT, DatasetT]):
+class TrainingConfig[ModelT: AbstractLLR, DatasetT: ReweightableDataset]:
     """Configuration for the training process."""
 
     test_fraction: float
@@ -57,7 +53,7 @@ class TrainingConfig(Generic[ModelT, DatasetT]):
         )
 
 
-def _train(
+def _train[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
     config: TrainingConfig[ModelT, DatasetT],
     *,
     model: ModelT,

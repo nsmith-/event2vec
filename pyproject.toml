@@ -10,7 +10,7 @@ authors = [
 ]
 description = "event2vec: Learning Event Representations for Effective Field Theories"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
   "Development Status :: 1 - Planning",
   "Intended Audience :: Science/Research",
@@ -44,6 +44,8 @@ Homepage = "https://github.com/nsmith-/event2vec"
 "Bug Tracker" = "https://github.com/nsmith-/event2vec/issues"
 Changelog = "https://github.com/nsmith-/event2vec/releases"
 
+[dependency-groups]
+dev = ["pre-commit>=4.4.0"]
 
 [tool.hatch]
 version.source = "vcs"
@@ -62,7 +64,7 @@ ignore = [
 ]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 files = "src"
 
 [[tool.mypy.overrides]]

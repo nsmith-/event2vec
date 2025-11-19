@@ -1,4 +1,3 @@
-from typing import TypeVar
 from collections.abc import Callable, Sequence
 
 import equinox as eqx
@@ -17,10 +16,7 @@ def partition_trainable_and_static(pytree: PyTree) -> tuple[PyTree, PyTree]:
     )
 
 
-T = TypeVar("T", bound=FreezableModule)
-
-
-def set_is_static(model: T, is_static_value: bool) -> T:
+def set_is_static[T: FreezableModule](model: T, is_static_value: bool) -> T:
     """Returns a copy of model, with the given is_static value."""
 
     if not isinstance(model, FreezableModule):
@@ -33,10 +29,7 @@ def set_is_static(model: T, is_static_value: bool) -> T:
     )
 
 
-TreeT = TypeVar("TreeT", bound=PyTree)
-
-
-def set_is_static_at(
+def set_is_static_at[TreeT: PyTree](
     where: Callable[[TreeT], FreezableModule | Sequence[FreezableModule]],
     pytree: TreeT,
     is_static_value: bool,
@@ -83,7 +76,7 @@ def set_is_static_at(
     return eqx.tree_at(where=where, pytree=pytree, replace_fn=replace_fn)
 
 
-def set_is_static_at_node(
+def set_is_static_at_node[TreeT: PyTree](
     pytree: TreeT, node: FreezableModule, is_static_value: bool
 ) -> TreeT:
     """Returns a copy of pytree, with node.is_static set to is_static_value.
