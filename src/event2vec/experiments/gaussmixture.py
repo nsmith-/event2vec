@@ -8,8 +8,10 @@ import jax.numpy as jnp
 from jaxtyping import PRNGKeyArray
 
 from event2vec.analysis import run_analysis
-from event2vec.dataset import ReweightableDataset
-from event2vec.datasets.gaussmixture import GaussMixtureDatasetFactory
+from event2vec.datasets.gaussmixture import (
+    GaussMixtureDataset,
+    GaussMixtureDatasetFactory,
+)
 from event2vec.experiment import ExperimentConfig, run_experiment
 from event2vec.loss import (
     BCELoss,
@@ -28,7 +30,7 @@ class GaussianMixture(ExperimentConfig):
 
     data_factory: GaussMixtureDatasetFactory
     model_config: E2VMLPConfig
-    train_config: TrainingConfig[VecDotLLR, ReweightableDataset]
+    train_config: TrainingConfig[VecDotLLR, GaussMixtureDataset]
     key: PRNGKeyArray
 
     @classmethod
@@ -101,7 +103,7 @@ class GaussianMixture(ExperimentConfig):
             key=jax.random.PRNGKey(args.key),
         )
 
-    def run(self, output_dir: Path):
+    def run(self, output_dir: Path) -> None:
         model, data, loss_train, loss_test = run_experiment(
             self.data_factory,
             self.model_config,

@@ -8,15 +8,13 @@ import jax.numpy as jnp
 from jaxtyping import PRNGKeyArray
 
 from event2vec.analysis import run_analysis
-from event2vec.dataset import ReweightableDataset
 from event2vec.datasets import VBFHDataset
 from event2vec.experiment import ExperimentConfig, run_experiment
 from event2vec.loss import (
     BCELoss,
     BinarySampledParamLoss,
 )
-from event2vec.model import AbstractLLR
-from event2vec.models.carl import CARLQuadraticFormMLPConfig
+from event2vec.models.carl import CARLPSDMatrixLLR, CARLQuadraticFormMLPConfig
 from event2vec.prior import SMPlusNormalParameterPrior, UncorrelatedJointPrior
 from event2vec.training import MetricsHistory, TrainingConfig
 
@@ -36,7 +34,7 @@ class CARLVBFHiggs(ExperimentConfig):
 
     data_factory: VBFHLoader
     model_config: CARLQuadraticFormMLPConfig
-    train_config: TrainingConfig[AbstractLLR, ReweightableDataset]
+    train_config: TrainingConfig[CARLPSDMatrixLLR, VBFHDataset]
     key: PRNGKeyArray
     study_points: dict[str, jax.Array]
 
@@ -103,7 +101,7 @@ class CARLVBFHiggs(ExperimentConfig):
             study_points=points,
         )
 
-    def run(self, output_dir: Path):
+    def run(self, output_dir: Path) -> None:
         model, data, loss_train, loss_test = run_experiment(
             self.data_factory,
             self.model_config,

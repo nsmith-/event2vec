@@ -95,7 +95,9 @@ class CARLQuadraticFormMLPConfig:
     standard_scaler: bool
     """Whether to standard scale the event observables."""
 
-    def build(self, key: PRNGKeyArray, training_data: QuadraticReweightableDataset):
+    def build(
+        self, key: PRNGKeyArray, training_data: QuadraticReweightableDataset
+    ) -> CARLPSDMatrixLLR:
         """Build the model from the configuration."""
         model = eqx.nn.MLP(
             in_size=training_data.observable_dim,
@@ -131,7 +133,9 @@ class CARLMLPConfig:
     standard_scaler: bool = False
     """Whether to standard scale the event observables."""
 
-    def build(self, key: PRNGKeyArray, training_data: QuadraticReweightableDataset):
+    def build(
+        self, key: PRNGKeyArray, training_data: QuadraticReweightableDataset
+    ) -> CARLLinearLLR | CARLQuadLLR:
         """Build the model from the configuration."""
         ncoef = training_data.parameter_dim
         cls = CARLQuadLLR if self.quadratic else CARLLinearLLR
