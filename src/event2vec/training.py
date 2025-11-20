@@ -33,8 +33,6 @@ class TrainingConfig[ModelT: AbstractLLR, DatasetT: ReweightableDataset]:
     """Fraction of the dataset to use for training."""
     val_fraction: float
     """Fraction of the dataset to use for validation."""
-    test_fraction: float
-    """Fraction of the dataset to use for testing."""
     batch_size: int
     """Batch size for training."""
     learning_rate: float
@@ -44,13 +42,21 @@ class TrainingConfig[ModelT: AbstractLLR, DatasetT: ReweightableDataset]:
     loss_fn: Loss[ModelT, DatasetT]
     """Loss function to use for training."""
 
+    @property
+    def test_fraction(self) -> float:
+        """Fraction of the dataset to use for testing (inferred from train and val fractions)."""
+        return 1.0 - self.train_fraction - self.val_fraction
+
     def __post_init__(self):
-        """Validate that the fractions sum to 1."""
-        total = self.train_fraction + self.val_fraction + self.test_fraction
-        if not (0.99 < total < 1.01):  # Allow small floating point tolerance
+        """Validate that the fractions are valid."""
+        if not (0.0 < self.train_fraction < 1.0):
+            raise ValueError(f"train_fraction must be between 0 and 1, got {self.train_fraction}")
+        if not (0.0 < self.val_fraction < 1.0):
+            raise ValueError(f"val_fraction must be between 0 and 1, got {self.val_fraction}")
+        if not (0.0 < self.test_fraction < 1.0):
             raise ValueError(
-                f"train_fraction, val_fraction, and test_fraction must sum to 1.0, "
-                f"got {self.train_fraction} + {self.val_fraction} + {self.test_fraction} = {total}"
+                f"test_fraction (inferred as 1 - train_fraction - val_fraction) must be between 0 and 1, "
+                f"got {self.test_fraction} (train_fraction={self.train_fraction}, val_fraction={self.val_fraction})"
             )
 
 

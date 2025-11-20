@@ -21,7 +21,7 @@ from event2vec.loss import (
 )
 from event2vec.models.vecdot import E2VMLPConfig, VecDotLLR
 from event2vec.prior import DirichletParameterPrior, UncorrelatedJointPrior
-from event2vec.training import MetricsHistory, TrainingConfig
+from event2vec.training import TrainingConfig
 
 
 @dataclass
@@ -92,7 +92,6 @@ class GaussianMixture(ExperimentConfig):
         train_config = TrainingConfig(
             train_fraction=0.8,
             val_fraction=0.1,
-            test_fraction=0.1,
             batch_size=128,
             learning_rate=0.005,
             epochs=args.epochs,
@@ -106,7 +105,7 @@ class GaussianMixture(ExperimentConfig):
         )
 
     def run(self, output_dir: Path) -> None:
-        model, data, loss_train, loss_val, loss_test = run_experiment(
+        model, data, data_test, metrics = run_experiment(
             self.data_factory,
             self.model_config,
             self.train_config,
@@ -114,7 +113,11 @@ class GaussianMixture(ExperimentConfig):
         )
         with open(output_dir / "model.eqx", "wb") as fout:
             eqx.tree_serialise_leaves(fout, model)
-        metrics = MetricsHistory(train_loss=loss_train, val_loss=loss_val, test_loss=loss_test)
+        
+        # Evaluate on test set
+        test_key = jax.random.PRNGKey(0)  # Use a fixed key for reproducible test evaluation
+        test_loss = self.train_config.loss_fn(model, data_test, key=test_key).item()
+        metrics.test_loss.append(test_loss)
         run_analysis(
             model=model,
             data=data,

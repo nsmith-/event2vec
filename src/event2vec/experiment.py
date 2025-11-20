@@ -53,14 +53,16 @@ def run_experiment[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
     train_config: TrainingConfig[ModelT, DatasetT],
     *,
     key: PRNGKeyArray,
-) -> tuple[ModelT, DatasetT, list[float], list[float], list[float]]:
+):
     """Run a full experiment: data loading, model building, training.
 
     Returns:
-        Tuple of (trained model, full dataset, train loss history, validation loss history, test loss history)
+        Tuple of (trained model, full dataset, test dataset, metrics history)
 
     TODO: require output directory and save results, including checkpoints.
     """
+    from event2vec.training import MetricsHistory
+
     data_key, model_key, split_key, train_key = jax.random.split(key, 4)
     data = data_factory(key=data_key)
     
@@ -87,8 +89,11 @@ def run_experiment[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
         key=train_key,
     )
     
-    # Evaluate on test set
-    test_key = jax.random.split(train_key)[0]
-    test_loss = [train_config.loss_fn(model, data_test, key=test_key).item()]
+    # Create metrics history (test loss will be computed later by the caller if needed)
+    metrics = MetricsHistory(
+        train_loss=loss_train,
+        val_loss=loss_val,
+        test_loss=[],  # Empty, to be filled by caller if needed
+    )
     
-    return model, data, loss_train, loss_val, test_loss
+    return model, data, data_test, metrics
