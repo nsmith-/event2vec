@@ -2,7 +2,7 @@ import argparse
 from datetime import datetime, timezone
 from pathlib import Path
 
-import rich
+import equinox as eqx
 
 import event2vec
 import event2vec.experiments as experiments
@@ -38,8 +38,8 @@ def main() -> None:
     with open(output_dir / "config.py", "w") as fout:
         print(f"# Date: {datetime.now(timezone.utc)}", file=fout)
         print(f"{event2vec.__version__ = }", file=fout)
-        # TODO: equinox modules don't print full reprs of array data
-        rich.print(config, file=fout)
+        # Use equinox.tree_pformat to show full array representations
+        print(eqx.tree_pformat(config, short_arrays=False), file=fout)
     config.run(output_dir)
 
 
