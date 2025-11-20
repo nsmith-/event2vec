@@ -93,7 +93,7 @@ def run_experiment[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
     metrics = MetricsHistory(
         train_loss=loss_train,
         val_loss=loss_val,
-        test_loss=[],  # Empty, to be filled by caller if needed
+        test_loss=None,  # To be filled by caller if needed
     )
     
     return model, data, data_test, metrics

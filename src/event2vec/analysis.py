@@ -18,14 +18,14 @@ def plot_loss(
     ax: Axes,
     loss_train: list[float],
     loss_val: list[float] | None = None,
-    loss_test: list[float] | None = None,
+    loss_test: float | None = None,
 ) -> None:
     """Plot training, validation, and testing loss over epochs."""
     ax.plot(loss_train, label="Training Loss")
     if loss_val is not None:
         ax.plot(loss_val, label="Validation Loss")
     if loss_test is not None:
-        ax.plot(loss_test, label="Testing Loss")
+        ax.axhline(loss_test, linestyle="--", label="Testing Loss")
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Loss")
     ax.legend()

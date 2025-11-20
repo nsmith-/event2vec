@@ -116,8 +116,7 @@ class GaussianMixture(ExperimentConfig):
         
         # Evaluate on test set
         test_key = jax.random.PRNGKey(0)  # Use a fixed key for reproducible test evaluation
-        test_loss = self.train_config.loss_fn(model, data_test, key=test_key).item()
-        metrics.test_loss.append(test_loss)
+        metrics.test_loss = self.train_config.loss_fn(model, data_test, key=test_key).item()
         run_analysis(
             model=model,
             data=data,

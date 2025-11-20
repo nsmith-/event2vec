@@ -21,8 +21,8 @@ class MetricsHistory:
     """List of training loss values per epoch."""
     val_loss: list[float]
     """List of validation loss values per epoch."""
-    test_loss: list[float]
-    """List of testing loss values per epoch."""
+    test_loss: float | None
+    """Test loss value (single evaluation at end of training)."""
 
 
 @dataclasses.dataclass
