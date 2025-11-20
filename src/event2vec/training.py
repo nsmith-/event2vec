@@ -19,6 +19,8 @@ class MetricsHistory:
 
     train_loss: list[float]
     """List of training loss values per epoch."""
+    val_loss: list[float]
+    """List of validation loss values per epoch."""
     test_loss: list[float]
     """List of testing loss values per epoch."""
 
@@ -27,6 +29,10 @@ class MetricsHistory:
 class TrainingConfig[ModelT: AbstractLLR, DatasetT: ReweightableDataset]:
     """Configuration for the training process."""
 
+    train_fraction: float
+    """Fraction of the dataset to use for training."""
+    val_fraction: float
+    """Fraction of the dataset to use for validation."""
     test_fraction: float
     """Fraction of the dataset to use for testing."""
     batch_size: int
@@ -43,15 +49,24 @@ def train[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
     config: TrainingConfig[ModelT, DatasetT],
     *,
     model: ModelT,
-    data: DatasetT,
+    data_train: DatasetT,
+    data_val: DatasetT,
     key: PRNGKeyArray,
 ) -> tuple[ModelT, list[float], list[float]]:
-    """Use a training configuration to train a model on a dataset.
+    """Use a training configuration to train a model on pre-split datasets.
+
+    Args:
+        config: Training configuration
+        model: Model to train
+        data_train: Training dataset
+        data_val: Validation dataset
+        key: Random key
+
+    Returns:
+        Tuple of (trained model, training loss history, validation loss history)
 
     TODO: replace output lists with a MetricsHistory object.
     """
-    key, subkey = jax.random.split(key)
-    data_train, data_test = data.split(config.test_fraction, key=subkey)
     diff_model, static_model = partition_trainable_and_static(model)
 
     @eqx.filter_jit
@@ -76,8 +91,8 @@ def train[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
     opt_state = optim.init(diff_model)
 
     train_loss_history: list[float] = []
-    test_loss_history: list[float] = []
-    pbar = standard_pbar(TextColumn("Test loss: {task.fields[loss]:.4f}"))
+    val_loss_history: list[float] = []
+    pbar = standard_pbar(TextColumn("Val loss: {task.fields[loss]:.4f}"))
     with pbar as progress:
         epoch_task = progress.add_task("Training...", total=config.epochs, loss=0.0)
         for _ in range(config.epochs):
@@ -91,10 +106,10 @@ def train[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
             train_loss_history.append(sum(tmp) / len(tmp))
             key, subkey = jax.random.split(key)
             model = eqx.combine(diff_model, static_model)
-            test_loss = eqx.filter_jit(config.loss_fn)(
-                model, data_test, key=subkey
+            val_loss = eqx.filter_jit(config.loss_fn)(
+                model, data_val, key=subkey
             ).item()
-            test_loss_history.append(test_loss)
-            progress.update(epoch_task, advance=1, loss=test_loss)
+            val_loss_history.append(val_loss)
+            progress.update(epoch_task, advance=1, loss=val_loss)
 
-    return model, train_loss_history, test_loss_history
+    return model, train_loss_history, val_loss_history

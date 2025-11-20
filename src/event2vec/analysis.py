@@ -14,10 +14,18 @@ from event2vec.training import MetricsHistory
 from event2vec.util import standard_pbar
 
 
-def plot_loss(ax: Axes, loss_train: list[float], loss_test: list[float]) -> None:
-    """Plot training and testing loss over epochs."""
+def plot_loss(
+    ax: Axes,
+    loss_train: list[float],
+    loss_val: list[float] | None = None,
+    loss_test: list[float] | None = None,
+) -> None:
+    """Plot training, validation, and testing loss over epochs."""
     ax.plot(loss_train, label="Training Loss")
-    ax.plot(loss_test, label="Testing Loss")
+    if loss_val is not None:
+        ax.plot(loss_val, label="Validation Loss")
+    if loss_test is not None:
+        ax.plot(loss_test, label="Testing Loss")
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Loss")
     ax.legend()
@@ -183,7 +191,7 @@ def run_analysis(
         analysis_task = progress.add_task("Running analysis...", total=nplots)
 
         fig, ax = plt.subplots()
-        plot_loss(ax, metrics.train_loss, metrics.test_loss)
+        plot_loss(ax, metrics.train_loss, metrics.val_loss, metrics.test_loss)
         fig.savefig(output_dir / "loss.png")
         ax.set_yscale("log")
         fig.savefig(output_dir / "loss_log.png")

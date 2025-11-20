@@ -90,6 +90,8 @@ class GaussianMixture(ExperimentConfig):
             )
         )
         train_config = TrainingConfig(
+            train_fraction=0.8,
+            val_fraction=0.1,
             test_fraction=0.1,
             batch_size=128,
             learning_rate=0.005,
@@ -104,7 +106,7 @@ class GaussianMixture(ExperimentConfig):
         )
 
     def run(self, output_dir: Path) -> None:
-        model, data, loss_train, loss_test = run_experiment(
+        model, data, loss_train, loss_val, loss_test = run_experiment(
             self.data_factory,
             self.model_config,
             self.train_config,
@@ -112,7 +114,7 @@ class GaussianMixture(ExperimentConfig):
         )
         with open(output_dir / "model.eqx", "wb") as fout:
             eqx.tree_serialise_leaves(fout, model)
-        metrics = MetricsHistory(train_loss=loss_train, test_loss=loss_test)
+        metrics = MetricsHistory(train_loss=loss_train, val_loss=loss_val, test_loss=loss_test)
         run_analysis(
             model=model,
             data=data,
