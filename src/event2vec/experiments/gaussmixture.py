@@ -8,6 +8,7 @@ import jax.numpy as jnp
 from jaxtyping import PRNGKeyArray
 
 from event2vec.analysis import run_analysis
+from event2vec.dataset import ReweightableDataset
 from event2vec.datasets.gaussmixture import GaussMixtureDatasetFactory
 from event2vec.experiment import ExperimentConfig, run_experiment
 from event2vec.loss import (
@@ -16,7 +17,7 @@ from event2vec.loss import (
     BinarySampledParamLoss,
     MSELoss,
 )
-from event2vec.models.vecdot import E2VMLPConfig
+from event2vec.models.vecdot import E2VMLPConfig, VecDotLLR
 from event2vec.prior import DirichletParameterPrior, UncorrelatedJointPrior
 from event2vec.training import MetricsHistory, TrainingConfig
 
@@ -27,7 +28,7 @@ class GaussianMixture(ExperimentConfig):
 
     data_factory: GaussMixtureDatasetFactory
     model_config: E2VMLPConfig
-    train_config: TrainingConfig
+    train_config: TrainingConfig[VecDotLLR, ReweightableDataset]
     key: PRNGKeyArray
 
     @classmethod
