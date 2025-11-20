@@ -46,6 +46,10 @@ def train[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
     data: DatasetT,
     key: PRNGKeyArray,
 ) -> tuple[ModelT, list[float], list[float]]:
+    """Use a training configuration to train a model on a dataset.
+
+    TODO: replace output lists with a MetricsHistory object.
+    """
     key, subkey = jax.random.split(key)
     data_train, data_test = data.split(config.test_fraction, key=subkey)
     diff_model, static_model = partition_trainable_and_static(model)
