@@ -44,6 +44,15 @@ class TrainingConfig[ModelT: AbstractLLR, DatasetT: ReweightableDataset]:
     loss_fn: Loss[ModelT, DatasetT]
     """Loss function to use for training."""
 
+    def __post_init__(self):
+        """Validate that the fractions sum to 1."""
+        total = self.train_fraction + self.val_fraction + self.test_fraction
+        if not (0.99 < total < 1.01):  # Allow small floating point tolerance
+            raise ValueError(
+                f"train_fraction, val_fraction, and test_fraction must sum to 1.0, "
+                f"got {self.train_fraction} + {self.val_fraction} + {self.test_fraction} = {total}"
+            )
+
 
 def train[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
     config: TrainingConfig[ModelT, DatasetT],
