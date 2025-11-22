@@ -59,10 +59,13 @@ class DataContent(eqx.Module):
     "Contains meta attributes that are common to all datapoints."
 
     @abstractmethod
-    def __len__(self) -> int:
+    def _len(self) -> int:
         """
         Returns the number of datapoints when self represents a dataset.
         Behavior is unspecified when self represents a datapoint.
+
+        This will be used by DataSet.__len__, which is the recommended
+        public interface.
         """
         raise NotImplementedError
 
@@ -71,6 +74,8 @@ class DataPoint[ContentT: DataContent](eqx.Module):
     """
     A container for an instance of DataContent. It declares that the
     datacontent should be treated as representing a single datapoint.
+
+    The datacontent of a datapoint can be accessed by calling it: `datapoint()`
 
     This is a generic-typed final class. It is not intended to be subclassed.
     """
@@ -90,6 +95,8 @@ class DataSet[ContentT: DataContent](eqx.Module):
     A container for an instance of DataContent. It declares that the
     datacontent should be treated as representing a dataset.
 
+    The datacontent of a dataset can be accessed by calling it: `dataset()`
+
     This is a generic-typed final class. It is not intended to be subclassed.
     """
 
@@ -102,8 +109,8 @@ class DataSet[ContentT: DataContent](eqx.Module):
     def __call__(self) -> ContentT:
         return self._content
 
-    def __len__(self):
-        return len(self())
+    def __len__(self) -> int:
+        return self._content._len()
 
     def get_vmap_in_axes_arg(self) -> PyTree:
         """
@@ -208,9 +215,11 @@ class LossBase[ModelT: Model, DataContentT: DataContent]:
         dataset: DataSet[DataContentT],
         key: PRNGKeyArray,
     ) -> Float[Array, ""]:
-        batchwise_key, *elemwise_keys, post_process_key = jax.random.split(
-            key, len(dataset) + 2
-        )
+        (
+            batchwise_key,
+            *elemwise_keys,
+            post_process_key,
+        ) = jax.random.split(key, len(dataset) + 2)
 
         # https://github.com/patrick-kidger/equinox/issues/405
         # filter_vap doesn't support kwargs, but it is still good to use
