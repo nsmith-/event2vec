@@ -32,7 +32,7 @@ Requirements notes:
 
 
 def _is_batchable(leaf):
-    return isinstance(leaf, jax.Array) and (leaf.ndim > 0)
+    return eqx.is_array(leaf) and (leaf.ndim > 0)
 
 
 def _none_out_all_leaves(pytree):
