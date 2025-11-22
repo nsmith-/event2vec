@@ -189,6 +189,22 @@ class DataSet[ContentT: DataContent](eqx.Module):
         return DataPoint(return_content)
 
 
+# TODO: Utility function to concatenate datasets
+def concatenate_datasets[DataContentT: DataContent](
+    datasets: list[DataSet[DataContentT]],
+) -> DataSet[DataContentT]:
+    raise NotImplementedError
+
+
+# TODO: Utility function to merge datapoints into a dataset.
+# Should be able to handle len(datapoints) = 1.
+# Will be useful for calling a Loss instance on a single datapoint.
+def make_dataset_from_datapoints[DataContentT: DataContent](
+    datapoints: list[DataPoint[DataContentT]],
+) -> DataSet[DataContentT]:
+    raise NotImplementedError
+
+
 type Model = eqx.Module  # stub, can substitute with AbstractLLR
 
 
