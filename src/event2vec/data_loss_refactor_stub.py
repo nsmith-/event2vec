@@ -208,7 +208,7 @@ def make_dataset_from_datapoints[DataContentT: DataContent](
 type Model = eqx.Module  # stub, can substitute with AbstractLLR
 
 
-class LossProtocol[ModelT: Model, DataContentT: DataContent](Protocol):
+class Loss[ModelT: Model, DataContentT: DataContent](Protocol):
     "This should be used for type hinting training utils."
 
     @abstractmethod
@@ -222,9 +222,7 @@ class LossProtocol[ModelT: Model, DataContentT: DataContent](Protocol):
         raise NotImplementedError
 
 
-class LossBase[ModelT: Model, DataContentT: DataContent](
-    LossProtocol[ModelT, DataContentT]
-):
+class LossBase[ModelT: Model, DataContentT: DataContent](Loss[ModelT, DataContentT]):
     """
     A base loss class that handles vmapping, so subclasses don't have to.
     Intended to be subclassed by loss implementations.
