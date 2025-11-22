@@ -276,7 +276,7 @@ class LossBase[ModelT: Model, DataContentT: DataContent]:
     def post_process(
         self,
         *,
-        batched_elemwise_loss: tuple[Array],  # vmapped elemwise loss
+        batched_elemwise_loss: tuple[Array, ...],  # vmapped elemwise loss
         model: ModelT,  # for advanced usage
         dataset: DataSet[DataContentT],  # for advanced usage
         post_process_key: PRNGKeyArray,  # for advanced usage
