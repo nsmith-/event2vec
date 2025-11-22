@@ -3,7 +3,7 @@
 # no reference to EFTs, making it easy to recycle for other projects.
 
 from abc import abstractmethod
-from typing import Protocol, Self, overload
+from typing import Protocol, overload, override
 
 import equinox as eqx
 import jax
@@ -155,9 +155,11 @@ class DataSet[ContentT: DataContent](eqx.Module):
     def __getitem__(self, key: int) -> DataPoint[ContentT]: ...
 
     @overload
-    def __getitem__(self, key: slice) -> Self: ...
+    def __getitem__(self, key: slice) -> "DataSet"[ContentT]: ...
 
-    def __getitem__(self, key: int | slice) -> DataPoint[ContentT] | Self:
+    def __getitem__(
+        self, key: int | slice
+    ) -> DataPoint[ContentT] | "DataSet"[ContentT]:
         assert isinstance(key, (int, slice))
 
         ## Slice batchable leaves, None out the rest #######
@@ -204,12 +206,15 @@ class LossProtocol[ModelT: Model, DataContentT: DataContent](Protocol):
         raise NotImplementedError
 
 
-class LossBase[ModelT: Model, DataContentT: DataContent]:
+class LossBase[ModelT: Model, DataContentT: DataContent](
+    LossProtocol[ModelT, DataContentT]
+):
     """
     A base loss class that handles vmapping, so subclasses don't have to.
     Intended to be subclassed by loss implementations.
     """
 
+    @override
     def __call__(
         self,
         *,
