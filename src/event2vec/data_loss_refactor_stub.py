@@ -1,4 +1,6 @@
-# This is a stub file. It is not intended to be merged into main
+# This is a stub file. It is not intended to be merged into main.
+# This can form a submodule for basic ML pipelining, that makes no reference
+# to EFTs, making it easy to recycle for other projects.
 
 from abc import abstractmethod
 from typing import Protocol, Self, overload
@@ -185,7 +187,7 @@ class DataSet[ContentT: DataContent](eqx.Module):
         return DataPoint(return_content)
 
 
-class Model: ...  # stub, can substitute with AbstractLLR
+type Model = eqx.Module  # stub, can substitute with AbstractLLR
 
 
 class LossProtocol[ModelT: Model, DataContentT: DataContent](Protocol):
@@ -215,6 +217,10 @@ class LossBase[ModelT: Model, DataContentT: DataContent]:
         dataset: DataSet[DataContentT],
         key: PRNGKeyArray,
     ) -> Float[Array, ""]:
+        """
+        This vmaps self.elemwise_loss_fn over the dataset, postprocesses the
+        result with self.post_process and returns the output.
+        """
         (
             batchwise_key,
             *elemwise_keys,
@@ -268,7 +274,7 @@ class LossBase[ModelT: Model, DataContentT: DataContent]:
         split further as needed (for dropout, param sampling, etc.).
 
         Abstract losses can finalize the implementation of elemwise_loss_fn
-        in terms of a different abstractmethod.
+        in terms of additional abstractmethods.
         """
         raise NotImplementedError
 
@@ -287,6 +293,7 @@ class LossBase[ModelT: Model, DataContentT: DataContent]:
         or a weighted mean.
 
         The kwargs model, dataset, and post_process_key are passed on for
-        more advanced use cases.
+        more advanced use cases. In principle, the entire loss implementation
+        can be within post_process, completely ignoring elemwise_loss_fn.
         """
         raise NotImplementedError
