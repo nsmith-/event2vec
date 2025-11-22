@@ -1,6 +1,6 @@
 # This is a stub file. It is not intended to be merged into main.
-# This can form a submodule for basic ML pipelining, that makes no reference
-# to EFTs, making it easy to recycle for other projects.
+# This can form a submodule (for basic ML pipelining) that makes
+# no reference to EFTs, making it easy to recycle for other projects.
 
 from abc import abstractmethod
 from typing import Protocol, Self, overload
