@@ -50,9 +50,13 @@ class TrainingConfig[ModelT: AbstractLLR, DatasetT: ReweightableDataset]:
     def __post_init__(self):
         """Validate that the fractions are valid."""
         if not (0.0 < self.train_fraction < 1.0):
-            raise ValueError(f"train_fraction must be between 0 and 1, got {self.train_fraction}")
+            raise ValueError(
+                f"train_fraction must be between 0 and 1, got {self.train_fraction}"
+            )
         if not (0.0 < self.val_fraction < 1.0):
-            raise ValueError(f"val_fraction must be between 0 and 1, got {self.val_fraction}")
+            raise ValueError(
+                f"val_fraction must be between 0 and 1, got {self.val_fraction}"
+            )
         if not (0.0 < self.test_fraction < 1.0):
             raise ValueError(
                 f"test_fraction (inferred as 1 - train_fraction - val_fraction) must be between 0 and 1, "

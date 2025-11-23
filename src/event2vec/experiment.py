@@ -65,21 +65,25 @@ def run_experiment[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
 
     data_key, model_key, split_key, train_key = jax.random.split(key, 4)
     data = data_factory(key=data_key)
-    
+
     # Split data into training, validation, and test sets
     split_key1, split_key2 = jax.random.split(split_key)
-    
+
     # First split: separate test set from train+val
-    data_trainval, data_test = data.split(1.0 - train_config.test_fraction, key=split_key1)
-    
+    data_trainval, data_test = data.split(
+        1.0 - train_config.test_fraction, key=split_key1
+    )
+
     # Second split: separate train and val sets
     # Calculate the fraction of trainval that should be training
-    train_frac_of_trainval = train_config.train_fraction / (train_config.train_fraction + train_config.val_fraction)
+    train_frac_of_trainval = train_config.train_fraction / (
+        train_config.train_fraction + train_config.val_fraction
+    )
     data_train, data_val = data_trainval.split(train_frac_of_trainval, key=split_key2)
-    
+
     # Build model using only training data
     model = model_config.build(key=model_key, training_data=data_train)
-    
+
     # Train the model
     model, loss_train, loss_val = train(
         config=train_config,
@@ -88,12 +92,12 @@ def run_experiment[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
         data_val=data_val,
         key=train_key,
     )
-    
+
     # Create metrics history (test loss will be computed later by the caller if needed)
     metrics = MetricsHistory(
         train_loss=loss_train,
         val_loss=loss_val,
         test_loss=None,  # To be filled by caller if needed
     )
-    
+
     return model, data, data_test, metrics
