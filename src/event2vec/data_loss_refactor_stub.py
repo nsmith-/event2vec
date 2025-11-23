@@ -3,10 +3,12 @@
 # no reference to EFTs, making it easy to recycle for other projects.
 
 from abc import abstractmethod
+from collections.abc import Sequence
 from typing import Protocol, overload, override
 
 import equinox as eqx
 import jax
+import jax.numpy as jnp
 from jaxtyping import Array, Float, PRNGKeyArray, PyTree
 
 """
@@ -30,15 +32,21 @@ Requirements notes:
    Make sure that the output datapoint is properly type hinted so that
    compatible losses can act on it.
    Side note: This requirement is kinda limiting, and not very important.
+
+Quirks of the public API:
+1. To access the contents of a datapoint or dataset (say `d`), one has to do
+   `d._content` or `d()`.
 """
 
 
-def _is_batchable(leaf):
+def _is_atleast_1d_array(leaf):  # type: ignore[no-untyped-def]
     return eqx.is_array(leaf) and (leaf.ndim > 0)
 
 
-def _none_out_all_leaves(pytree):
-    return eqx.filter(pytree=pytree, filter_spec=False)
+# A thin wrapper around jax.tree.map, which allows passing `f` and `tree`
+# as keyword args when also providing the `rest` argument.
+def _jaxtreemap(f, tree, rest_as_seq=[], is_leaf=None):  # type: ignore[no-untyped-def]
+    return jax.tree.map(f, tree, *rest_as_seq, is_leaf=is_leaf)
 
 
 class DataContent(eqx.Module):
@@ -57,7 +65,7 @@ class DataContent(eqx.Module):
     (b) outside DataContent.meta_attrs.
     """
 
-    meta_attrs: PyTree
+    meta_attrs: eqx.AbstractVar[PyTree]
     "Contains meta attributes that are common to all datapoints."
 
     @abstractmethod
@@ -70,6 +78,38 @@ class DataContent(eqx.Module):
         public interface.
         """
         raise NotImplementedError
+
+    # TODO: Make this method private? This is the only public method that's
+    #       not typed meaningfully.
+    def get_batchable_filter_spec(self, prefix_okay: bool = False) -> PyTree:
+        """
+        Returns a "filter_spec" tree (with Boolean leaves), indicating which
+        leaves of the datacontent represent batchable arrays. Such leaves will
+        have a leading batch dim iff the datacontent corresponds to a dataset.
+
+        `prefix_okay` indicates whether the structure of returned tree
+        (a) can be a prefix of the datacontent's tree structure or
+        (b) should match the datacontent's full tree structure exactly.
+        """
+
+        atleast_1d_filter_spec = jax.tree.map(
+            f=_is_atleast_1d_array,
+            tree=self,
+        )
+
+        prefix_batchable_filter_spec = eqx.tree_at(
+            where=lambda tree: tree.meta_attrs,
+            pytree=atleast_1d_filter_spec,
+            replace=False,
+        )
+
+        if prefix_okay:
+            return prefix_batchable_filter_spec
+
+        return jax.tree.broadcast(
+            prefix_tree=prefix_batchable_filter_spec,
+            full_tree=self,
+        )
 
 
 class DataPoint[ContentT: DataContent](eqx.Module):
@@ -114,43 +154,6 @@ class DataSet[ContentT: DataContent](eqx.Module):
     def __len__(self) -> int:
         return self._content._len()
 
-    def get_vmap_in_axes_arg(self) -> PyTree:
-        """
-        The output can be used with eqx.filter_map to vmap properly over the
-        batch axis. Example use:
-
-        ```
-        # Given:
-        # dset: DataSet
-
-        def point_func(dpoint: Datapoint) -> Array:
-            return jnp.array([1.])
-
-        set_func = eqx.filter_vmap(
-            fun=point_func,
-            in_axes=(dset.get_vmap_in_axes_arg(),)
-        )
-
-        set_func(dset)
-        ```
-        """
-
-        # axis is 0 for batchable leaves, None otherwise ###
-        vmap_in_axes_arg = jax.tree.map(
-            f=lambda leaf: 0 if _is_batchable(leaf) else None, tree=self
-        )
-        ####################################################
-
-        ## None out meta_attrs subtree #####################
-        vmap_in_axes_arg = eqx.tree_at(
-            where=lambda tree: tree._content.meta_attrs,
-            pytree=vmap_in_axes_arg,
-            replace=None,
-        )
-        ####################################################
-
-        return vmap_in_axes_arg
-
     @overload
     def __getitem__(self, key: int) -> DataPoint[ContentT]: ...
 
@@ -162,25 +165,10 @@ class DataSet[ContentT: DataContent](eqx.Module):
     ) -> DataPoint[ContentT] | "DataSet"[ContentT]:
         assert isinstance(key, (int, slice))
 
-        ## Slice batchable leaves, None out the rest #######
-        sliced_only_content = jax.tree.map(
-            f=lambda leaf: leaf[key] if _is_batchable(leaf) else None,
+        return_content = _jaxtreemap(  # type: ignore[no-untyped-call]
+            f=lambda x, batchable: x[key] if batchable else x,
             tree=self._content,
-        )
-        ####################################################
-
-        ## None out contents of meta_attrs #################
-        sliced_only_content = eqx.tree_at(
-            where=lambda content: content.meta_attrs,
-            pytree=sliced_only_content,
-            replace_fn=_none_out_all_leaves,
-        )
-        ####################################################
-
-        # combine will use the first non-None candidate (if any) for each leaf
-        return_content: ContentT = eqx.combine(
-            sliced_only_content,
-            self._content,
+            rest_as_seq=[self._content.get_batchable_filter_spec()],
         )
 
         if isinstance(key, slice):
@@ -189,20 +177,60 @@ class DataSet[ContentT: DataContent](eqx.Module):
         return DataPoint(return_content)
 
 
-# TODO: Utility function to concatenate datasets
 def concatenate_datasets[DataContentT: DataContent](
-    datasets: list[DataSet[DataContentT]],
+    datasets: Sequence[DataSet[DataContentT]],
 ) -> DataSet[DataContentT]:
-    raise NotImplementedError
+    """
+    Utility function to concatenate datasets.
+
+    The first dataset (in the list `datasets`) sets the structure of the
+    content tree and provides the non-batchable leaves.
+    """
+
+    assert len(datasets) >= 1
+
+    def _concatenate_where_batchable(batchable, *leaves):  # type: ignore[no-untyped-def]
+        if batchable:
+            return jnp.concatenate(leaves, axis=0)
+        else:
+            return leaves[0]  # get non-batchable leaves from the first dataset
+
+    return_content = _jaxtreemap(  # type: ignore[no-untyped-call]
+        f=_concatenate_where_batchable,
+        tree=datasets[0]._content.get_batchable_filter_spec(),
+        rest_as_seq=[dataset._content for dataset in datasets],
+    )
+
+    return DataSet(return_content)
 
 
-# TODO: Utility function to merge datapoints into a dataset.
-# Should be able to handle len(datapoints) = 1.
-# Will be useful for calling a Loss instance on a single datapoint.
-def make_dataset_from_datapoints[DataContentT: DataContent](
-    datapoints: list[DataPoint[DataContentT]],
+def stack_datapoints[DataContentT: DataContent](
+    datapoints: Sequence[DataPoint[DataContentT]],
 ) -> DataSet[DataContentT]:
-    raise NotImplementedError
+    """
+    Utility function to merge datapoints into a dataset.
+
+    Can handle len(datapoints) = 1, which corresponds to elevating
+    a datapoint into a dataset of length 1.
+
+    The first datapoint (in the list `datapoints`) sets the structure of the
+    content tree and provides the non-batchable leaves.
+    """
+    assert len(datapoints) >= 1
+
+    def _stack_where_batchable(batchable, *leaves):  # type: ignore[no-untyped-def]
+        if batchable:
+            return jnp.stack(leaves, axis=0)
+        else:
+            return leaves[0]  # get non-batchable leaves from the first dataset
+
+    return_content = _jaxtreemap(  # type: ignore[no-untyped-call]
+        f=_stack_where_batchable,
+        tree=datapoints[0]._content.get_batchable_filter_spec(),
+        rest_as_seq=[datapoint._content for datapoint in datapoints],
+    )
+
+    return DataSet(return_content)
 
 
 type Model = eqx.Module  # stub, can substitute with AbstractLLR
@@ -239,6 +267,12 @@ class LossBase[ModelT: Model, DataContentT: DataContent](Loss[ModelT, DataConten
         """
         This vmaps self.elemwise_loss_fn over the dataset, postprocesses the
         result with self.post_process and returns the output.
+
+        dev note: The rule that a DataPoint should be only initialized with
+        the contents of a single datapoint is broken in this implementation.
+        Doing so ensures that potential checks like
+            `assert isinstance(datapoint, DataPoint)`
+        within overrides of `elemwise_loss_fn` will pass.
         """
         (
             batchwise_key,
@@ -249,7 +283,7 @@ class LossBase[ModelT: Model, DataContentT: DataContent](Loss[ModelT, DataConten
         # https://github.com/patrick-kidger/equinox/issues/405
         # filter_vap doesn't support kwargs, but it is still good to use
         # kwargs in the public elemwise_loss_fn.
-        def _elemwise_loss_fn(model, datapoint, elemwise_key, batchwise_key):
+        def _elemwise_loss_fn(model, datapoint, elemwise_key, batchwise_key):  # type: ignore[no-untyped-def]
             return self.elemwise_loss_fn(
                 model=model,
                 datapoint=datapoint,
@@ -257,9 +291,14 @@ class LossBase[ModelT: Model, DataContentT: DataContent](Loss[ModelT, DataConten
                 batchwise_key=batchwise_key,
             )
 
+        datacontent_in_axes = jax.tree.map(
+            f=lambda batchable: 0 if batchable else None,
+            tree=dataset._content.get_batchable_filter_spec(),
+        )
+
         in_axes = {
             "model": None,
-            "datapoint": dataset.get_vmap_in_axes_arg(),
+            "datapoint": DataPoint(datacontent_in_axes),
             "elemwise_key": 0,
             "batchwise_key": None,
         }
@@ -269,7 +308,7 @@ class LossBase[ModelT: Model, DataContentT: DataContent](Loss[ModelT, DataConten
         )
 
         batched_elemwise_loss = vmapped_elemwise_loss_fn(
-            model, dataset, elemwise_keys, batchwise_key
+            model, DataPoint(dataset._content), elemwise_keys, batchwise_key
         )
 
         return self.post_process(
