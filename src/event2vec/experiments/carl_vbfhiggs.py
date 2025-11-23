@@ -14,6 +14,7 @@ from event2vec.loss import (
     BCELoss,
     BinarySampledParamLoss,
 )
+from event2vec.losses._psd_matrix_losses import FrobeniusNormLoss
 from event2vec.models.carl import CARLPSDMatrixLLR, CARLQuadraticFormMLPConfig
 from event2vec.prior import SMPlusNormalParameterPrior, UncorrelatedJointPrior
 from event2vec.training import MetricsHistory, TrainingConfig
@@ -58,10 +59,18 @@ class CARLVBFHiggs(ExperimentConfig):
             default=1_000,
             help="Number of training epochs. (default: %(default)s)",
         )
+        parser.add_argument(
+            "--loss-fn",
+            type=str,
+            choices=["bce_sampled", "frobenius"],
+            default="bce_sampled",
+            help="Loss function to use. (default: %(default)s)",
+        )
 
     @classmethod
     def from_args(cls, args: Namespace) -> "CARLVBFHiggs":
         # based on a rough translation of HIG-21-018 uncorrelated uncertainties
+        # cHbox, cHDD, cHW, cHB, cHWB
         std = jnp.array([0.5, 2.0, 0.005, 0.002, 0.003]) * 10
         prior = SMPlusNormalParameterPrior(
             mean=jnp.array([0.0, 0.0, 0.0, 0.0, 0.0]),
@@ -70,14 +79,23 @@ class CARLVBFHiggs(ExperimentConfig):
         run_key = jax.random.PRNGKey(args.key)
 
         points = {
-            # cSM, cHbox, cHDD, cHW, cHB, cHWB
             "SM": jnp.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-            "cHW2em3": jnp.array([1.0, 0.0, 0.0, 2.0e-3, 0.0, 0.0]),
-            "cHB5em3": jnp.array([1.0, 0.0, 0.0, 0.0, 5.0e-3, 0.0]),
-            "cHWB3em3": jnp.array([1.0, 0.0, 0.0, 0.0, 0.0, 3.0e-3]),
-            "cHbox0p5": jnp.array([1.0, 0.5, 0.0, 0.0, 0.0, 0.0]),
-            "cHDD2p0": jnp.array([1.0, 0.0, 2.0, 0.0, 0.0, 0.0]),
+            "cHbox5p0": jnp.array([1.0, 5.0, 0.0, 0.0, 0.0, 0.0]),
+            "cHDD20p0": jnp.array([1.0, 0.0, 20.0, 0.0, 0.0, 0.0]),
+            "cHW2em2": jnp.array([1.0, 0.0, 0.0, 2.0e-2, 0.0, 0.0]),
+            "cHB5em2": jnp.array([1.0, 0.0, 0.0, 0.0, 5.0e-2, 0.0]),
+            "cHWB3em2": jnp.array([1.0, 0.0, 0.0, 0.0, 0.0, 3.0e-2]),
         }
+        if args.loss_fn == "bce_sampled":
+            loss_fn = BinarySampledParamLoss(
+                parameter_prior=UncorrelatedJointPrior(prior),
+                continuous_labels=True,
+                elementwise_loss=BCELoss(),
+            )
+        elif args.loss_fn == "frobenius":
+            loss_fn = FrobeniusNormLoss()
+        else:
+            raise ValueError(f"Unknown loss function: {args.loss_fn}")
         return cls(
             data_factory=VBFHLoader(data_path=args.data_path.resolve()),
             model_config=CARLQuadraticFormMLPConfig(
@@ -91,11 +109,7 @@ class CARLVBFHiggs(ExperimentConfig):
                 batch_size=128,
                 learning_rate=0.001,
                 epochs=args.epochs,
-                loss_fn=BinarySampledParamLoss(
-                    parameter_prior=UncorrelatedJointPrior(prior),
-                    continuous_labels=True,
-                    elementwise_loss=BCELoss(),
-                ),
+                loss_fn=loss_fn,
             ),
             key=run_key,
             study_points=points,
