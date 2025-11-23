@@ -8,7 +8,7 @@ from jaxtyping import PRNGKeyArray
 
 from event2vec.dataset import ReweightableDataset
 from event2vec.model import AbstractLLR
-from event2vec.training import TrainingConfig, train
+from event2vec.training import MetricsHistory, TrainingConfig, train
 
 
 class DatasetFactory[DatasetT: ReweightableDataset](Protocol):
@@ -53,11 +53,11 @@ def run_experiment[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
     train_config: TrainingConfig[ModelT, DatasetT],
     *,
     key: PRNGKeyArray,
-):
+) -> tuple[ModelT, DatasetT, MetricsHistory]:
     """Run a full experiment: data loading, model building, training.
 
     Returns:
-        Tuple of (trained model, full dataset, test dataset, metrics history)
+        Tuple of (trained model, test dataset, metrics history)
 
     TODO: require output directory and save results, including checkpoints.
     """
@@ -93,11 +93,10 @@ def run_experiment[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
         key=train_key,
     )
 
-    # Create metrics history (test loss will be computed later by the caller if needed)
     metrics = MetricsHistory(
         train_loss=loss_train,
         val_loss=loss_val,
         test_loss=None,  # To be filled by caller if needed
     )
 
-    return model, data, data_test, metrics
+    return model, data_test, metrics
