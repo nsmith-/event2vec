@@ -93,10 +93,14 @@ def run_experiment[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
         key=train_key,
     )
 
+    # Evaluate on test set
+    test_key = jax.random.PRNGKey(0)
+    test_loss = train_config.loss_fn(model, data_test, key=test_key).item()
+
     metrics = MetricsHistory(
         train_loss=loss_train,
         val_loss=loss_val,
-        test_loss=None,  # To be filled by caller if needed
+        test_loss=test_loss,
     )
 
     return model, data_test, metrics

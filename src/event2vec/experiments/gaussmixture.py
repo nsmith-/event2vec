@@ -113,12 +113,6 @@ class GaussianMixture(ExperimentConfig):
         )
         with open(output_dir / "model.eqx", "wb") as fout:
             eqx.tree_serialise_leaves(fout, model)
-
-        # Evaluate on test set
-        test_key = jax.random.PRNGKey(0)
-        metrics.test_loss = self.train_config.loss_fn(
-            model, data_test, key=test_key
-        ).item()
         run_analysis(
             model=model,
             data=data_test,
