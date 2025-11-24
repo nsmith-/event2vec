@@ -126,6 +126,42 @@ def plot_vecfield(ax: Axes, model: VecDotLLR, observables: jax.Array):
     ax.set_ylabel("Observable 1")
 
 
+def dump_summary_plots(
+    model: VecDotLLR,
+    observables: jax.Array,
+    output_dir: Path,
+) -> None:
+    """Dump summary plots for each dimension of the event summary.
+
+    Args:
+        model: The trained VecDotLLR model.
+        observables: A (N, 2) array of observables to define the plotting range.
+        output_dir: The directory to save the plots in.
+    """
+    x = jnp.linspace(jnp.min(observables[:, 0]), jnp.max(observables[:, 0]), 20)
+    y = jnp.linspace(jnp.min(observables[:, 1]), jnp.max(observables[:, 1]), 20)
+    X, Y = jnp.meshgrid(x, y)
+    grid_points = jnp.stack([X.ravel(), Y.ravel()], axis=-1)
+
+    summaries = jax.vmap(model.event_summary)(grid_points).reshape(X.shape + (-1,))
+    k = summaries.shape[2]
+    fig, axes = plt.subplots(ncols=k, figsize=(4 * k, 4))
+    for i in range(k):
+        ax = axes[i] if k > 1 else axes
+        ax.imshow(
+            summaries[:, :, i],
+            extent=(x[0], x[-1], y[0], y[-1]),
+            origin="lower",
+            aspect="auto",
+        )
+        ax.set_title(f"Summary dimension {i}")
+        ax.set_xlabel("Observable 0")
+        ax.set_ylabel("Observable 1")
+
+    fig.tight_layout()
+    fig.savefig(output_dir / "summary_fields.png")
+
+
 def study_point_analysis(
     model: AbstractLLR,
     data: ReweightableDataset,
@@ -195,7 +231,8 @@ def run_analysis(
             plot_vecfield(ax, model, data.observables)
             fig.savefig(output_dir / "vector_field.png")
             plt.close(fig)
-            progress.advance(analysis_task)
+            dump_summary_plots(model, data.observables, output_dir)
+        progress.advance(analysis_task)
 
         for p0name, param_0 in study_points.items():
             p0dir = output_dir / f"den_{p0name}"
