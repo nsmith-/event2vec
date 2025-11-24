@@ -349,6 +349,7 @@ class LossBase[ModelT: Model, DataContentT: DataContent](Loss[ModelT, DataConten
             "batchwise_key": None,
         }
 
+        # TODO: Let/make subclasses provide the out_axes arg for filter_vmap?
         vmapped_elemwise_loss_fn = eqx.filter_vmap(
             fun=_elemwise_loss_fn, in_axes=in_axes
         )
@@ -372,10 +373,13 @@ class LossBase[ModelT: Model, DataContentT: DataContent](Loss[ModelT, DataConten
         datapoint: DataPoint[DataContentT],
         elemwise_key: PRNGKeyArray | None,  # for param sampling, dropout, etc.
         batchwise_key: PRNGKeyArray | None,  # because why not
-    ) -> tuple[Array, ...]:
+    ) -> PyTree:
         """
         A loss function that acts on a single datapoint. elemwise_key can be
         split further as needed (for dropout, param sampling, etc.).
+
+        The returned PyTree can simply be a one- or multi-dimensional array,
+        a tuple of arrays, etc.
 
         Abstract losses can finalize the implementation of elemwise_loss_fn
         in terms of additional abstractmethods.
@@ -386,7 +390,7 @@ class LossBase[ModelT: Model, DataContentT: DataContent](Loss[ModelT, DataConten
     def post_process(
         self,
         *,
-        batched_elemwise_loss: tuple[Array, ...],  # vmapped elemwise loss
+        batched_elemwise_loss: PyTree,  # vmapped elemwise loss
         model: ModelT,  # for advanced usage
         dataset: DataSet[DataContentT],  # for advanced usage
         post_process_key: PRNGKeyArray,  # for advanced usage
