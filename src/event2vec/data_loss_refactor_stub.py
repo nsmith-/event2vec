@@ -68,7 +68,7 @@ Alternative implementation ideas that avoid this quirk:
    this type variable as well as determine the runtime point vs set behavior.
    This solves issues (1a) and (1d). Issues (1b) and (1c) are still present.
 4. Issues (1a-d) as well as the quick of the current implementation can be
-   solved using higher kinded types from the `returns` package, by type making
+   solved using higher kinded types from the `returns` package, by making
    functions/loss-classes generic in both DataContentType and PointOrSetType.
 5. An approach that won't have any of the issues (1a-d) is passing both
    the DataContent instance and a point-or-type indicator (Literal typed arg)
@@ -78,10 +78,6 @@ Alternative implementation ideas that avoid this quirk:
 6. Finally, if allowing strong static type checking is not too important,
    many of these issues become non-issues.
 """
-
-
-def _is_atleast_1d_array(leaf):  # type: ignore[no-untyped-def]
-    return eqx.is_array(leaf) and (leaf.ndim > 0)
 
 
 # A thin wrapper around jax.tree.map, which allows passing `f` and `tree`
@@ -100,10 +96,8 @@ class DataContent(eqx.Module):
     that interactions with `DataContent` (including calling its methods) be
     performed only after packaging it appropriately.
 
-    The leading dimension will be assumed to be the batch dimension
-    for any array with ndim >= 1 that is contained
-    (a) within a DataContent packaged inside a DataSet, but
-    (b) outside DataContent.meta_attrs.
+    Any array within a DataContent object not inside DataContent.meta_attrs
+    will be assumed to be batchable.
     """
 
     meta_attrs: eqx.AbstractVar[PyTree]
@@ -120,36 +114,38 @@ class DataContent(eqx.Module):
         """
         raise NotImplementedError
 
-    # TODO: Make this a regular function instead of a DataContent method?
-    def _get_batchable_filter_spec(self, prefix_okay: bool = False) -> PyTree:
-        """
-        Returns a "filter_spec" tree (with Boolean leaves), indicating which
-        leaves of the datacontent represent batchable arrays. Such leaves will
-        have a leading batch dim iff the datacontent corresponds to a dataset.
 
-        `prefix_okay` indicates whether the structure of returned tree
-        (a) can be a prefix of the datacontent's tree structure or
-        (b) should match the datacontent's full tree structure exactly.
-        """
+def _get_batchable_filter_spec(
+    datacontent: DataContent, prefix_okay: bool = False
+) -> PyTree:
+    """
+    Returns a "filter_spec" tree (with Boolean leaves), indicating which
+    leaves of the datacontent represent batchable arrays. Such leaves will
+    have a leading batch dim iff the datacontent corresponds to a dataset.
 
-        atleast_1d_filter_spec = jax.tree.map(
-            f=_is_atleast_1d_array,
-            tree=self,
-        )
+    `prefix_okay` indicates whether the structure of returned tree
+    (a) can be a prefix of the datacontent's tree structure or
+    (b) should match the datacontent's full tree structure exactly.
+    """
 
-        prefix_batchable_filter_spec = eqx.tree_at(
-            where=lambda tree: tree.meta_attrs,
-            pytree=atleast_1d_filter_spec,
-            replace=False,
-        )
+    is_array_filter_spec = jax.tree.map(
+        f=eqx.is_array,
+        tree=datacontent,
+    )
 
-        if prefix_okay:
-            return prefix_batchable_filter_spec
+    prefix_batchable_filter_spec = eqx.tree_at(
+        where=lambda tree: tree.meta_attrs,
+        pytree=is_array_filter_spec,
+        replace=False,
+    )
 
-        return jax.tree.broadcast(
-            prefix_tree=prefix_batchable_filter_spec,
-            full_tree=self,
-        )
+    if prefix_okay:
+        return prefix_batchable_filter_spec
+
+    return jax.tree.broadcast(
+        prefix_tree=prefix_batchable_filter_spec,
+        full_tree=datacontent,
+    )
 
 
 class DataPoint[ContentT: DataContent](eqx.Module):
@@ -211,9 +207,9 @@ class DataSet[ContentT: DataContent](eqx.Module):
         assert isinstance(key, (int, slice))
 
         return_content = _jaxtreemap(  # type: ignore[no-untyped-call]
-            f=lambda x, batchable: x[key] if batchable else x,
-            tree=self._content,
-            rest_as_seq=[self._content._get_batchable_filter_spec()],
+            f=lambda batchable, x: x[key] if batchable else x,
+            tree=_get_batchable_filter_spec(self._content),
+            rest_as_seq=[self._content],
         )
 
         if isinstance(key, slice):
@@ -242,7 +238,7 @@ def concatenate_datasets[DataContentT: DataContent](
 
     return_content = _jaxtreemap(  # type: ignore[no-untyped-call]
         f=_concatenate_where_batchable,
-        tree=datasets[0]._content._get_batchable_filter_spec(),
+        tree=_get_batchable_filter_spec(datasets[0]._content),
         rest_as_seq=[dataset._content for dataset in datasets],
     )
 
@@ -271,7 +267,7 @@ def stack_datapoints[DataContentT: DataContent](
 
     return_content = _jaxtreemap(  # type: ignore[no-untyped-call]
         f=_stack_where_batchable,
-        tree=datapoints[0]._content._get_batchable_filter_spec(),
+        tree=_get_batchable_filter_spec(datapoints[0]._content),
         rest_as_seq=[datapoint._content for datapoint in datapoints],
     )
 
@@ -339,7 +335,7 @@ class LossBase[ModelT: Model, DataContentT: DataContent](Loss[ModelT, DataConten
 
         datacontent_in_axes = jax.tree.map(
             f=lambda batchable: 0 if batchable else None,
-            tree=dataset._content._get_batchable_filter_spec(),
+            tree=_get_batchable_filter_spec(dataset._content),
         )
 
         in_axes = {
