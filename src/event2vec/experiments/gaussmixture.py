@@ -70,7 +70,7 @@ class GaussianMixture(ExperimentConfig):
         )
         model_config = E2VMLPConfig(
             summary_dim=2,
-            hidden_size=4,
+            hidden_size=16,
             depth=3,
             standard_scaler=True,
             bin_probabilities=args.binwise,
