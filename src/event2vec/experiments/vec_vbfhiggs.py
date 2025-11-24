@@ -1,6 +1,7 @@
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Self
 
 import equinox as eqx
 import jax
@@ -10,32 +11,25 @@ from jaxtyping import PRNGKeyArray
 from event2vec.analysis import run_analysis
 from event2vec.datasets import VBFHDataset
 from event2vec.experiment import ExperimentConfig, run_experiment
+from event2vec.experiments.carl_vbfhiggs import VBFHLoader
 from event2vec.loss import (
     BCELoss,
+    BinarySampledParamBinwiseLoss,
     BinarySampledParamLoss,
+    MSELoss,
 )
-from event2vec.losses._psd_matrix_losses import FrobeniusNormLoss
-from event2vec.models.carl import CARLPSDMatrixLLR, CARLQuadraticFormMLPConfig
+from event2vec.models.vecdot import E2VMLPConfig, VecDotLLR
 from event2vec.prior import SMPlusNormalParameterPrior, UncorrelatedJointPrior
 from event2vec.training import MetricsHistory, TrainingConfig
 
 
 @dataclass
-class VBFHLoader:
-    data_path: Path
-
-    def __call__(self, *, key) -> VBFHDataset:
-        dataset = VBFHDataset.from_lhe(str(self.data_path))
-        return dataset
-
-
-@dataclass
-class CARLVBFHiggs(ExperimentConfig):
-    """Experiment configuration for CARL on VBF Higgs dataset."""
+class VecVBFHiggs(ExperimentConfig):
+    """Experiment configuration for event2vec on VBF Higgs dataset."""
 
     data_factory: VBFHLoader
-    model_config: CARLQuadraticFormMLPConfig
-    train_config: TrainingConfig[CARLPSDMatrixLLR, VBFHDataset]
+    model_config: E2VMLPConfig
+    train_config: TrainingConfig[VecDotLLR, VBFHDataset]
     key: PRNGKeyArray
     study_points: dict[str, jax.Array]
 
@@ -60,15 +54,26 @@ class CARLVBFHiggs(ExperimentConfig):
             help="Number of training epochs. (default: %(default)s)",
         )
         parser.add_argument(
-            "--loss-fn",
+            "--loss",
             type=str,
-            choices=["bce_sampled", "frobenius"],
-            default="bce_sampled",
+            choices=["mse", "bce"],
+            default="mse",
             help="Loss function to use. (default: %(default)s)",
+        )
+        parser.add_argument(
+            "--binwise",
+            action="store_true",
+            help="Use binwise loss instead of standard loss.",
+        )
+        parser.add_argument(
+            "--summary-dim",
+            type=int,
+            default=18,  # same dimensionality as rank-3 6-parameter PSD model
+            help="Dimensionality of the summary representation. (default: %(default)s)",
         )
 
     @classmethod
-    def from_args(cls, args: Namespace) -> "CARLVBFHiggs":
+    def from_args(cls, args: Namespace) -> Self:
         # based on a rough translation of HIG-21-018 uncorrelated uncertainties
         # cHbox, cHDD, cHW, cHB, cHWB
         std = jnp.array([0.5, 2.0, 0.005, 0.002, 0.003]) * 10
@@ -86,24 +91,36 @@ class CARLVBFHiggs(ExperimentConfig):
             "cHB5em2": jnp.array([1.0, 0.0, 0.0, 0.0, 5.0e-2, 0.0]),
             "cHWB3em2": jnp.array([1.0, 0.0, 0.0, 0.0, 0.0, 3.0e-2]),
         }
-        if args.loss_fn == "bce_sampled":
-            loss_fn = BinarySampledParamLoss(
-                parameter_prior=UncorrelatedJointPrior(prior),
-                continuous_labels=True,
-                elementwise_loss=BCELoss(),
-            )
-        elif args.loss_fn == "frobenius":
-            loss_fn = FrobeniusNormLoss()
+        model_config = E2VMLPConfig(
+            summary_dim=args.summary_dim,
+            hidden_size=64,
+            depth=3,
+            standard_scaler=True,
+            bin_probabilities=args.binwise,
+        )
+        if args.loss == "mse":
+            elementwise_loss = MSELoss()
+        elif args.loss == "bce":
+            elementwise_loss = BCELoss()
         else:
-            raise ValueError(f"Unknown loss function: {args.loss_fn}")
+            raise ValueError(f"Unknown loss function: {args.loss}")
+        joint_prior = UncorrelatedJointPrior(prior)
+        loss_fn = (
+            BinarySampledParamBinwiseLoss(
+                parameter_prior=joint_prior,
+                continuous_labels=True,
+                elementwise_loss=elementwise_loss,
+            )
+            if args.binwise
+            else BinarySampledParamLoss(
+                parameter_prior=joint_prior,
+                continuous_labels=True,
+                elementwise_loss=elementwise_loss,
+            )
+        )
         return cls(
             data_factory=VBFHLoader(data_path=args.data_path.resolve()),
-            model_config=CARLQuadraticFormMLPConfig(
-                hidden_size=64,
-                depth=3,
-                rank=3,
-                standard_scaler=True,
-            ),
+            model_config=model_config,
             train_config=TrainingConfig(
                 test_fraction=0.1,
                 batch_size=128,
