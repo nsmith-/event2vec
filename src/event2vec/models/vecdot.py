@@ -7,6 +7,7 @@ from jaxtyping import PRNGKeyArray
 
 from event2vec.dataset import ReweightableDataset
 from event2vec.model import AbstractLLR
+from event2vec.models.mlp import MLP
 from event2vec.nontrainable import StandardScalerWrapper
 from event2vec.shapes import LLRScalar, LLRVec, ObsVec, ParamVec, ProbVec
 
@@ -57,26 +58,16 @@ class E2VMLPConfig:
     def build(self, key: PRNGKeyArray, training_data: ReweightableDataset):
         """Build the model from the configuration."""
         key1, key2 = jax.random.split(key, 2)
-        event_summary: Callable[[ObsVec], ParamVec] = eqx.nn.MLP(
-            in_size=training_data.observable_dim,
-            out_size=self.summary_dim,
-            width_size=self.hidden_size,
-            depth=self.depth,
-            activation=jax.nn.leaky_relu,
-            # https://github.com/patrick-kidger/equinox/issues/1147
-            # final_activation=(
-            #     jax.nn.softmax if self.bin_probabilities else jax.nn.identity
-            # ),
+        event_summary: Callable[[ObsVec], ParamVec] = MLP(
+            in_shape=(training_data.observable_dim,),
+            out_shape=(self.summary_dim,),
+            hidden_widths=[self.hidden_size] * self.depth,
+            hidden_activation=jax.nn.leaky_relu,
+            final_activation=(
+                jax.nn.softmax if self.bin_probabilities else jax.nn.identity
+            ),
             key=key1,
         )
-        if self.bin_probabilities:
-            # Manually add softmax final activation due to Equinox issue
-            old_event_summary = event_summary
-
-            def event_summary_with_softmax(x: ObsVec) -> ProbVec:
-                return jax.nn.softmax(old_event_summary(x))
-
-            event_summary = event_summary_with_softmax
         param_map = eqx.nn.MLP(
             in_size=training_data.parameter_dim,
             out_size=self.summary_dim,
