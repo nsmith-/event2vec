@@ -39,8 +39,8 @@ Pros of the current implementation:
    methods and classes are meaningfully typed.
 
 Quirk of the current public API:
-   To access the contents of a DataPoint instance, say `dp`, one has to do
-   `dp._content` or `dp()`. Likewise for DataSet.
+   To access the contents of a DataPoint instance, say `dp`,
+   one has to do `dp.content`. Likewise for DataSet.
 
 Alternative implementation ideas that avoid this quirk:
 1. Subclass DataContent + DataPointMixin into DataPoint; likewise for Dataset.
@@ -153,21 +153,11 @@ class DataPoint[ContentT: DataContent](eqx.Module):
     A container for an instance of DataContent. It declares that the
     datacontent should be treated as representing a single datapoint.
 
-    The datacontent of a datapoint can be accessed by calling it: `datapoint()`
-
     This is a generic-typed final class. It is not intended to be subclassed.
     """
 
-    # TODO: Make _content public, remove __init__ and __call__, and embrace
-    #       the idea that a DataPoint object "contains" a DataContent object?
-    _content: ContentT
+    content: ContentT
     "Make sure that content contains a single datapoint (no batch dim)."
-
-    def __init__(self, content: ContentT, /):
-        self._content = content
-
-    def __call__(self) -> ContentT:
-        return self._content
 
 
 class DataSet[ContentT: DataContent](eqx.Module):
@@ -175,25 +165,18 @@ class DataSet[ContentT: DataContent](eqx.Module):
     A container for an instance of DataContent. It declares that the
     datacontent should be treated as representing a dataset.
 
-    The datacontent of a dataset can be accessed by calling it: `dataset()`
-
     This is a generic-typed final class. It is not intended to be subclassed.
     """
 
-    # TODO: Make _content public, remove __init__ and __call__, and embrace
-    #       the idea that a DataSet object "contains" a DataContent object?
-    _content: ContentT
+    content: ContentT
     "Make sure that content represents a dataset (batch axis=0)."
-
-    def __init__(self, content: ContentT, /):
-        self._content = content
 
     # TODO: Remove the `_len` method from DataContent and provide a default
     #       implementation (e.g., as a cached property) in DataSet itself?
-    def __check_init__(self):
+    def __check_init__(self) -> None:
         batchable_filtered_tree = eqx.filter(
-            pytree=self._content,
-            filter_spec=_get_batchable_filter_spec(self._content),
+            pytree=self.content,
+            filter_spec=_get_batchable_filter_spec(self.content),
         )
 
         for item in jax.tree.leaves(batchable_filtered_tree):
@@ -215,11 +198,8 @@ class DataSet[ContentT: DataContent](eqx.Module):
                     "`content.meta_attrs` must match the size of the dataset."
                 )
 
-    def __call__(self) -> ContentT:
-        return self._content
-
     def __len__(self) -> int:
-        return self._content._len()
+        return self.content._len()
 
     @overload
     def __getitem__(self, key: int) -> DataPoint[ContentT]: ...
@@ -235,8 +215,8 @@ class DataSet[ContentT: DataContent](eqx.Module):
 
         return_content = _jaxtreemap(  # type: ignore[no-untyped-call]
             f=lambda batchable, x: x[key] if batchable else x,
-            tree=_get_batchable_filter_spec(self._content),
-            rest_as_seq=[self._content],
+            tree=_get_batchable_filter_spec(self.content),
+            rest_as_seq=[self.content],
         )
 
         if isinstance(key, slice):
@@ -265,8 +245,8 @@ def concatenate_datasets[DataContentT: DataContent](
 
     return_content = _jaxtreemap(  # type: ignore[no-untyped-call]
         f=_concatenate_where_batchable,
-        tree=_get_batchable_filter_spec(datasets[0]._content),
-        rest_as_seq=[dataset._content for dataset in datasets],
+        tree=_get_batchable_filter_spec(datasets[0].content),
+        rest_as_seq=[dataset.content for dataset in datasets],
     )
 
     return DataSet(return_content)
@@ -294,8 +274,8 @@ def stack_datapoints[DataContentT: DataContent](
 
     return_content = _jaxtreemap(  # type: ignore[no-untyped-call]
         f=_stack_where_batchable,
-        tree=_get_batchable_filter_spec(datapoints[0]._content),
-        rest_as_seq=[datapoint._content for datapoint in datapoints],
+        tree=_get_batchable_filter_spec(datapoints[0].content),
+        rest_as_seq=[datapoint.content for datapoint in datapoints],
     )
 
     return DataSet(return_content)
@@ -362,10 +342,10 @@ class LossBase[ModelT: Model, DataContentT: DataContent](Loss[ModelT, DataConten
 
         datacontent_in_axes = jax.tree.map(
             f=lambda batchable: 0 if batchable else None,
-            tree=_get_batchable_filter_spec(dataset._content),
+            tree=_get_batchable_filter_spec(dataset.content),
         )
 
-        in_axes = {
+        in_axes = {  # type: ignore[var-annotated]
             "model": None,
             "datapoint": DataPoint(datacontent_in_axes),
             "elemwise_key": 0,
@@ -378,7 +358,7 @@ class LossBase[ModelT: Model, DataContentT: DataContent](Loss[ModelT, DataConten
         )
 
         batched_elemwise_loss = vmapped_elemwise_loss_fn(
-            model, DataPoint(dataset._content), elemwise_keys, batchwise_key
+            model, DataPoint(dataset.content), elemwise_keys, batchwise_key
         )
 
         return self.post_process(
