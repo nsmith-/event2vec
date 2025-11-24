@@ -8,7 +8,7 @@ from jaxtyping import PRNGKeyArray
 
 from event2vec.dataset import ReweightableDataset
 from event2vec.model import AbstractLLR
-from event2vec.training import TrainingConfig, train
+from event2vec.training import MetricsHistory, TrainingConfig, train
 
 
 class DatasetFactory[DatasetT: ReweightableDataset](Protocol):
@@ -53,19 +53,54 @@ def run_experiment[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
     train_config: TrainingConfig[ModelT, DatasetT],
     *,
     key: PRNGKeyArray,
-) -> tuple[ModelT, DatasetT, list[float], list[float]]:
+) -> tuple[ModelT, DatasetT, MetricsHistory]:
     """Run a full experiment: data loading, model building, training.
+
+    Returns:
+        Tuple of (trained model, test dataset, metrics history)
 
     TODO: require output directory and save results, including checkpoints.
     """
-    data_key, model_key, train_key = jax.random.split(key, 3)
+    from event2vec.training import MetricsHistory
+
+    data_key, model_key, split_key, train_key = jax.random.split(key, 4)
     data = data_factory(key=data_key)
-    # TODO: restrict to training data only (train-test split needs to move out of train_config.train)
-    model = model_config.build(key=model_key, training_data=data)
-    model, loss_train, loss_test = train(
+
+    # Split data into training, validation, and test sets
+    split_key1, split_key2 = jax.random.split(split_key)
+
+    # First split: separate test set from train+val
+    data_trainval, data_test = data.split(
+        1.0 - train_config.test_fraction, key=split_key1
+    )
+
+    # Second split: separate train and val sets
+    # Calculate the fraction of trainval that should be training
+    train_frac_of_trainval = train_config.train_fraction / (
+        train_config.train_fraction + train_config.val_fraction
+    )
+    data_train, data_val = data_trainval.split(train_frac_of_trainval, key=split_key2)
+
+    # Build model using only training data
+    model = model_config.build(key=model_key, training_data=data_train)
+
+    # Train the model
+    model, loss_train, loss_val = train(
         config=train_config,
         model=model,
-        data=data,
+        data_train=data_train,
+        data_val=data_val,
         key=train_key,
     )
-    return model, data, loss_train, loss_test
+
+    # Evaluate on test set
+    test_key = jax.random.PRNGKey(0)
+    test_loss = train_config.loss_fn(model, data_test, key=test_key).item()
+
+    metrics = MetricsHistory(
+        train_loss=loss_train,
+        val_loss=loss_val,
+        test_loss=test_loss,
+    )
+
+    return model, data_test, metrics

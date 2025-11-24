@@ -17,7 +17,7 @@ from event2vec.loss import (
 from event2vec.losses._psd_matrix_losses import FrobeniusNormLoss
 from event2vec.models.carl import CARLPSDMatrixLLR, CARLQuadraticFormMLPConfig
 from event2vec.prior import SMPlusNormalParameterPrior, UncorrelatedJointPrior
-from event2vec.training import MetricsHistory, TrainingConfig
+from event2vec.training import TrainingConfig
 
 
 @dataclass
@@ -105,7 +105,8 @@ class CARLVBFHiggs(ExperimentConfig):
                 standard_scaler=True,
             ),
             train_config=TrainingConfig(
-                test_fraction=0.1,
+                train_fraction=0.8,
+                val_fraction=0.1,
                 batch_size=128,
                 learning_rate=0.001,
                 epochs=args.epochs,
@@ -116,7 +117,7 @@ class CARLVBFHiggs(ExperimentConfig):
         )
 
     def run(self, output_dir: Path) -> None:
-        model, data, loss_train, loss_test = run_experiment(
+        model, data_test, metrics = run_experiment(
             self.data_factory,
             self.model_config,
             self.train_config,
@@ -124,10 +125,9 @@ class CARLVBFHiggs(ExperimentConfig):
         )
         with open(output_dir / "model.eqx", "wb") as fout:
             eqx.tree_serialise_leaves(fout, model)
-        metrics = MetricsHistory(train_loss=loss_train, test_loss=loss_test)
         run_analysis(
             model=model,
-            data=data,
+            data=data_test,
             metrics=metrics,
             study_points=self.study_points,
             output_dir=output_dir,
