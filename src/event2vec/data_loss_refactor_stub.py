@@ -33,9 +33,45 @@ Requirements notes:
    compatible losses can act on it.
    Side note: This requirement is kinda limiting, and not very important.
 
-Quirks of the public API:
-1. To access the contents of a datapoint or dataset (say `d`), one has to do
-   `d._content` or `d()`.
+Pros of the current implementation:
+   This should facilitate strong static type checking, without much
+   boilerplate for each narrower abstract DataContent. Also, all public
+   methods and classes are meaningfully typed.
+
+Quirk of the current public API:
+   To access the contents of a DataPoint instance, say `dp`, one has to do
+   `dp._content` or `dp()`. Likewise for DataSet.
+
+Alternative implementation ideas that avoid this quirk:
+1. Subclass DataContent + DataPointMixin into DataPoint; likewise for Dataset.
+   Issues:
+   a) For each new abstract DataContent, say ReweightableData, one has to
+      create a corresponding ReweightableDataPoint and ReweightableDataSet,
+      which adds boilerplate.
+   b) New typing overloads have to be provided for `concatenate_datasets`
+      and `stack_datapoints`, which adds boilerplate.
+   c) One has to override the `__getitem__` method in each abstract DataSet
+      just to provide type hints. Implementation will just involve calling
+      `super().__getitem__(key)`. Likewise, in each abstract loss
+      implementation on narrowed DataContent, one has to override the
+      `LossBase.__call__` method just to provide type hints. Both of these
+      add boilerplate. The former issue can be mitigated by forgoing the
+      syntactic sugar offered by `__getitem__`.
+   d) Constructing DataPoints from DataSets and vice versa will require hacks.
+2. Absorb all the special methods of DataPoint and DataSet into DataContent
+   itself. Create DataPoint and DataSet via `NewType`. A Literal attribute can
+   be used to determine the DataPoint vs DataSet behavior at runtime.
+   This solves issue (1d). Issues (1a), (1b) and (1c) are still present.
+3. Create a generic DataContent[DataPointOrSetT] class (absorb all the special
+   methods of DataPoint and DataSet into DataContent itself). Each new abstract
+   DataContent will also be generic. A Literal attribute can be used to infer
+   this type variable as well as determine the runtime point vs set behavior.
+   This solves issues (1a) and (1d). Issues (1b) and (1c) are still present.
+4. Issues (1a-d) as well as the quick of the current implementation can be
+   solved using higher kinded types from the `returns` package, by type making
+   functions/loss-classes generic in both DataContentType and PointOrSetType.
+5. Finally, if allowing strong static type checking is not too important,
+   many of these issues become non-issues.
 """
 
 
@@ -79,9 +115,7 @@ class DataContent(eqx.Module):
         """
         raise NotImplementedError
 
-    # TODO: Make this method private? This is the only public method that's
-    #       not typed meaningfully.
-    def get_batchable_filter_spec(self, prefix_okay: bool = False) -> PyTree:
+    def _get_batchable_filter_spec(self, prefix_okay: bool = False) -> PyTree:
         """
         Returns a "filter_spec" tree (with Boolean leaves), indicating which
         leaves of the datacontent represent batchable arrays. Such leaves will
@@ -158,17 +192,17 @@ class DataSet[ContentT: DataContent](eqx.Module):
     def __getitem__(self, key: int) -> DataPoint[ContentT]: ...
 
     @overload
-    def __getitem__(self, key: slice) -> "DataSet"[ContentT]: ...
+    def __getitem__(self, key: slice) -> "DataSet[ContentT]": ...
 
     def __getitem__(
         self, key: int | slice
-    ) -> DataPoint[ContentT] | "DataSet"[ContentT]:
+    ) -> DataPoint[ContentT] | "DataSet[ContentT]":
         assert isinstance(key, (int, slice))
 
         return_content = _jaxtreemap(  # type: ignore[no-untyped-call]
             f=lambda x, batchable: x[key] if batchable else x,
             tree=self._content,
-            rest_as_seq=[self._content.get_batchable_filter_spec()],
+            rest_as_seq=[self._content._get_batchable_filter_spec()],
         )
 
         if isinstance(key, slice):
@@ -197,7 +231,7 @@ def concatenate_datasets[DataContentT: DataContent](
 
     return_content = _jaxtreemap(  # type: ignore[no-untyped-call]
         f=_concatenate_where_batchable,
-        tree=datasets[0]._content.get_batchable_filter_spec(),
+        tree=datasets[0]._content._get_batchable_filter_spec(),
         rest_as_seq=[dataset._content for dataset in datasets],
     )
 
@@ -226,7 +260,7 @@ def stack_datapoints[DataContentT: DataContent](
 
     return_content = _jaxtreemap(  # type: ignore[no-untyped-call]
         f=_stack_where_batchable,
-        tree=datapoints[0]._content.get_batchable_filter_spec(),
+        tree=datapoints[0]._content._get_batchable_filter_spec(),
         rest_as_seq=[datapoint._content for datapoint in datapoints],
     )
 
@@ -293,7 +327,7 @@ class LossBase[ModelT: Model, DataContentT: DataContent](Loss[ModelT, DataConten
 
         datacontent_in_axes = jax.tree.map(
             f=lambda batchable: 0 if batchable else None,
-            tree=dataset._content.get_batchable_filter_spec(),
+            tree=dataset._content._get_batchable_filter_spec(),
         )
 
         in_axes = {
