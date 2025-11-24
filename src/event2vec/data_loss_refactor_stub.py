@@ -70,7 +70,12 @@ Alternative implementation ideas that avoid this quirk:
 4. Issues (1a-d) as well as the quick of the current implementation can be
    solved using higher kinded types from the `returns` package, by type making
    functions/loss-classes generic in both DataContentType and PointOrSetType.
-5. Finally, if allowing strong static type checking is not too important,
+5. An approach that won't have any of the issues (1a-d) is passing both
+   the DataContent instance and a point-or-type indicator (Literal typed arg)
+   to losses and other functions for type checking purposes. We'll have two
+   type variables to genericize over. This just trades the current API quirk
+   for a different one.
+6. Finally, if allowing strong static type checking is not too important,
    many of these issues become non-issues.
 """
 
@@ -157,6 +162,8 @@ class DataPoint[ContentT: DataContent](eqx.Module):
     This is a generic-typed final class. It is not intended to be subclassed.
     """
 
+    # TODO: Make _content public, remove __init__ and __call__, and embrace
+    #       the idea that a DataPoint object "contains" a DataContent object?
     _content: ContentT
     "Make sure that content contains a single datapoint (no batch dim)."
 
@@ -177,6 +184,8 @@ class DataSet[ContentT: DataContent](eqx.Module):
     This is a generic-typed final class. It is not intended to be subclassed.
     """
 
+    # TODO: Make _content public, remove __init__ and __call__, and embrace
+    #       the idea that a DataSet object "contains" a DataContent object?
     _content: ContentT
     "Make sure that content represents a dataset (batch axis=0)."
 
@@ -308,7 +317,8 @@ class LossBase[ModelT: Model, DataContentT: DataContent](Loss[ModelT, DataConten
         the contents of a single datapoint is broken in this implementation.
         Doing so ensures that potential checks like
             `assert isinstance(datapoint, DataPoint)`
-        within overrides of `elemwise_loss_fn` will pass.
+        within overrides of `elemwise_loss_fn` will pass. The fake DataPoint
+        instances are not returned.
         """
         (
             batchwise_key,
