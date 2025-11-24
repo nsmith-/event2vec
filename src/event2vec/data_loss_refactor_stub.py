@@ -115,6 +115,7 @@ class DataContent(eqx.Module):
         """
         raise NotImplementedError
 
+    # TODO: Make this a regular function instead of a DataContent method?
     def _get_batchable_filter_spec(self, prefix_okay: bool = False) -> PyTree:
         """
         Returns a "filter_spec" tree (with Boolean leaves), indicating which
@@ -194,6 +195,7 @@ class DataSet[ContentT: DataContent](eqx.Module):
     @overload
     def __getitem__(self, key: slice) -> "DataSet[ContentT]": ...
 
+    # TODO: Offer this feature via util function(s) instead of a dunder method?
     def __getitem__(
         self, key: int | slice
     ) -> DataPoint[ContentT] | "DataSet[ContentT]":
