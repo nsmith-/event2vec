@@ -55,6 +55,12 @@ class GaussianMixture(ExperimentConfig):
             help="Loss function to use. (default: %(default)s)",
         )
         parser.add_argument(
+            "--summary-dim",
+            type=int,
+            default=2,
+            help="Dimensionality of the event summary. (default: %(default)s)",
+        )
+        parser.add_argument(
             "--binwise",
             action="store_true",
             help="Use binwise loss instead of standard loss.",
@@ -69,7 +75,7 @@ class GaussianMixture(ExperimentConfig):
             param_prior=gen_param_prior,
         )
         model_config = E2VMLPConfig(
-            summary_dim=2,
+            summary_dim=args.summary_dim,
             hidden_size=16,
             depth=3,
             standard_scaler=True,
