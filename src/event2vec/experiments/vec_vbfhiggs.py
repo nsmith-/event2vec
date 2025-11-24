@@ -1,6 +1,7 @@
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Self
 
 import equinox as eqx
 import jax
@@ -8,11 +9,9 @@ import jax.numpy as jnp
 from jaxtyping import PRNGKeyArray
 
 from event2vec.analysis import run_analysis
-from event2vec.datasets.gaussmixture import (
-    GaussMixtureDataset,
-    GaussMixtureDatasetFactory,
-)
+from event2vec.datasets import VBFHDataset
 from event2vec.experiment import ExperimentConfig, run_experiment
+from event2vec.experiments.carl_vbfhiggs import VBFHLoader
 from event2vec.loss import (
     BCELoss,
     BinarySampledParamBinwiseLoss,
@@ -20,21 +19,28 @@ from event2vec.loss import (
     MSELoss,
 )
 from event2vec.models.vecdot import E2VMLPConfig, VecDotLLR
-from event2vec.prior import DirichletParameterPrior, UncorrelatedJointPrior
+from event2vec.prior import SMPlusNormalParameterPrior, UncorrelatedJointPrior
 from event2vec.training import MetricsHistory, TrainingConfig
 
 
 @dataclass
-class GaussianMixture(ExperimentConfig):
-    """Experiment configuration for Gaussian Mixture dataset."""
+class VecVBFHiggs(ExperimentConfig):
+    """Experiment configuration for event2vec on VBF Higgs dataset."""
 
-    data_factory: GaussMixtureDatasetFactory
+    data_factory: VBFHLoader
     model_config: E2VMLPConfig
-    train_config: TrainingConfig[VecDotLLR, GaussMixtureDataset]
+    train_config: TrainingConfig[VecDotLLR, VBFHDataset]
     key: PRNGKeyArray
+    study_points: dict[str, jax.Array]
 
     @classmethod
     def register_parser(cls, parser: ArgumentParser) -> None:
+        parser.add_argument(
+            "--data-path",
+            type=Path,
+            required=True,
+            help="Path to the VBF Higgs LHE files (supports glob patterns).",
+        )
         parser.add_argument(
             "--key",
             type=int,
@@ -59,23 +65,46 @@ class GaussianMixture(ExperimentConfig):
             action="store_true",
             help="Use binwise loss instead of standard loss.",
         )
+        parser.add_argument(
+            "--summary-dim",
+            type=int,
+            default=18,  # same dimensionality as rank-3 6-parameter PSD model
+            help="Dimensionality of the summary representation. (default: %(default)s)",
+        )
 
     @classmethod
-    def from_args(cls, args: Namespace) -> "GaussianMixture":
-        gen_param_prior = DirichletParameterPrior(alpha=jnp.array([9.0, 3.0, 3.0]))
-        joint_prior = UncorrelatedJointPrior(gen_param_prior)
-        data_factory = GaussMixtureDatasetFactory(
-            len=200_000,
-            param_prior=gen_param_prior,
+    def from_args(cls, args: Namespace) -> Self:
+        # based on a rough translation of HIG-21-018 uncorrelated uncertainties
+        # cHbox, cHDD, cHW, cHB, cHWB
+        std = jnp.array([0.5, 2.0, 0.005, 0.002, 0.003]) * 10
+        prior = SMPlusNormalParameterPrior(
+            mean=jnp.array([0.0, 0.0, 0.0, 0.0, 0.0]),
+            cov=jnp.diag(std**2),
         )
+        run_key = jax.random.PRNGKey(args.key)
+
+        points = {
+            "SM": jnp.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+            "cHbox5p0": jnp.array([1.0, 5.0, 0.0, 0.0, 0.0, 0.0]),
+            "cHDD20p0": jnp.array([1.0, 0.0, 20.0, 0.0, 0.0, 0.0]),
+            "cHW2em2": jnp.array([1.0, 0.0, 0.0, 2.0e-2, 0.0, 0.0]),
+            "cHB5em2": jnp.array([1.0, 0.0, 0.0, 0.0, 5.0e-2, 0.0]),
+            "cHWB3em2": jnp.array([1.0, 0.0, 0.0, 0.0, 0.0, 3.0e-2]),
+        }
         model_config = E2VMLPConfig(
-            summary_dim=2,
-            hidden_size=16,
+            summary_dim=args.summary_dim,
+            hidden_size=64,
             depth=3,
             standard_scaler=True,
             bin_probabilities=args.binwise,
         )
-        elementwise_loss = MSELoss() if args.loss == "mse" else BCELoss()
+        if args.loss == "mse":
+            elementwise_loss = MSELoss()
+        elif args.loss == "bce":
+            elementwise_loss = BCELoss()
+        else:
+            raise ValueError(f"Unknown loss function: {args.loss}")
+        joint_prior = UncorrelatedJointPrior(prior)
         loss_fn = (
             BinarySampledParamBinwiseLoss(
                 parameter_prior=joint_prior,
@@ -89,18 +118,18 @@ class GaussianMixture(ExperimentConfig):
                 elementwise_loss=elementwise_loss,
             )
         )
-        train_config = TrainingConfig(
-            test_fraction=0.1,
-            batch_size=128,
-            learning_rate=0.005,
-            epochs=args.epochs,
-            loss_fn=loss_fn,
-        )
         return cls(
-            data_factory=data_factory,
+            data_factory=VBFHLoader(data_path=args.data_path.resolve()),
             model_config=model_config,
-            train_config=train_config,
-            key=jax.random.PRNGKey(args.key),
+            train_config=TrainingConfig(
+                test_fraction=0.1,
+                batch_size=128,
+                learning_rate=0.001,
+                epochs=args.epochs,
+                loss_fn=loss_fn,
+            ),
+            key=run_key,
+            study_points=points,
         )
 
     def run(self, output_dir: Path) -> None:
@@ -117,11 +146,6 @@ class GaussianMixture(ExperimentConfig):
             model=model,
             data=data,
             metrics=metrics,
-            study_points={
-                "gen_mean": jnp.array([9.0, 3.0, 3.0]) / 15.0,
-                "SM": jnp.array([1.0, 0.0, 0.0]),
-                "bsm1": jnp.array([0.8, 0.2, 0.0]),
-                "bsm2": jnp.array([0.8, 0.0, 0.2]),
-            },
+            study_points=self.study_points,
             output_dir=output_dir,
         )
