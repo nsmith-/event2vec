@@ -188,6 +188,33 @@ class DataSet[ContentT: DataContent](eqx.Module):
     def __init__(self, content: ContentT, /):
         self._content = content
 
+    # TODO: Remove the `_len` method from DataContent and provide a default
+    #       implementation (e.g., as a cached property) in DataSet itself?
+    def __check_init__(self):
+        batchable_filtered_tree = eqx.filter(
+            pytree=self._content,
+            filter_spec=_get_batchable_filter_spec(self._content),
+        )
+
+        for item in jax.tree.leaves(batchable_filtered_tree):
+            if item is None:
+                continue
+
+            assert eqx.is_array(item)
+
+            if item.ndim < 1:
+                raise ValueError(
+                    "Arrays in `content` outside `content.meta_attrs` "
+                    "must have ndim >= 1"
+                )
+
+            if len(item) != len(self):
+                # jax.vmap doesn't broadcast length-1 dimensions
+                raise ValueError(
+                    "Leading dimension of all arrays in `content` but outside "
+                    "`content.meta_attrs` must match the size of the dataset."
+                )
+
     def __call__(self) -> ContentT:
         return self._content
 
