@@ -138,8 +138,11 @@ def dump_summary_plots(
         observables: A (N, 2) array of observables to define the plotting range.
         output_dir: The directory to save the plots in.
     """
-    x = jnp.linspace(jnp.min(observables[:, 0]), jnp.max(observables[:, 0]), 20)
-    y = jnp.linspace(jnp.min(observables[:, 1]), jnp.max(observables[:, 1]), 20)
+    xmin, xmax = jnp.min(observables[:, 0]), jnp.max(observables[:, 0])
+    ymin, ymax = jnp.min(observables[:, 1]), jnp.max(observables[:, 1])
+    # Make a grid of centers
+    x = jnp.linspace(xmin, xmax, 100, endpoint=False) + (xmax - xmin) / 200
+    y = jnp.linspace(ymin, ymax, 100, endpoint=False) + (ymax - ymin) / 200
     X, Y = jnp.meshgrid(x, y)
     grid_points = jnp.stack([X.ravel(), Y.ravel()], axis=-1)
 
@@ -150,7 +153,7 @@ def dump_summary_plots(
         ax = axes[i] if k > 1 else axes
         ax.imshow(
             summaries[:, :, i],
-            extent=(x[0], x[-1], y[0], y[-1]),
+            extent=(xmin, xmax, ymin, ymax),
             origin="lower",
             aspect="auto",
         )
