@@ -3,22 +3,18 @@
 #       a __len__ method for progress bars' benefit).
 
 
-from typing import TYPE_CHECKING, final
+from collections.abc import Iterator
+from typing import final
 
 import equinox as eqx
 import jax
+import optax
+from jaxtyping import Array, Float, PRNGKeyArray
 
+from .data import DataContent, DataSet
+from .loss import Loss
+from .type_aliases import Model
 from .utils import dataset_partition_meta_constant_variable, partition_trainable_frozen
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
-
-    import optax
-    from jaxtyping import Array, Float, PRNGKeyArray
-
-    from .data import DataContent, DataSet
-    from .loss import Loss
-    from .type_aliases import Model
 
 
 @final

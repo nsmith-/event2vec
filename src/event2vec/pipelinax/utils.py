@@ -1,18 +1,13 @@
 __all__ = ["partition_trainable_frozen", "dataset_partition_meta_constant_variable"]
 
 
-from typing import TYPE_CHECKING
-
 import equinox as eqx
 import jax
+from jaxtyping import PyTree
 
+from .data import DataContent, DataSet
 from .nontrainability import is_marked_frozen, is_trainable_array
-
-if TYPE_CHECKING:
-    from jaxtyping import PyTree
-
-    from .data import DataContent, DataSet
-    from .type_aliases import Model
+from .type_aliases import Model
 
 
 def partition_trainable_frozen(pytree: Model) -> tuple[PyTree, PyTree]:

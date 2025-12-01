@@ -1,13 +1,11 @@
 __all__ = ["DataContent", "DataPoint", "DataSet"]
 
-from typing import TYPE_CHECKING, Final, final
+from typing import Final, final
 
 import equinox as eqx
 import jax
 import numpy as np
-
-if TYPE_CHECKING:
-    from jaxtyping import PyTree
+from jaxtyping import PyTree
 
 ## TODO: Implement indexing/slicing a dataset.
 

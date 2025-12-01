@@ -2,18 +2,15 @@ __all__ = ["Loss", "VmappedLoss"]
 
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Protocol, final, override
+from typing import Protocol, final, override
 
 import equinox as eqx
 import jax
+from jaxtyping import Array, Float, PRNGKeyArray, PyTree
 
 from .data import DataContent, DataPoint, DataSet
+from .type_aliases import Model, ModeStr
 from .utils import dataset_partition_meta_constant_variable
-
-if TYPE_CHECKING:
-    from jaxtyping import Array, Float, PRNGKeyArray, PyTree
-
-    from .type_aliases import Model, ModeStr
 
 
 class Loss[ModelT: Model, DataContentT: DataContent](Protocol):

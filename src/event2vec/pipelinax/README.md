@@ -27,9 +27,33 @@ can be built on top of this submodule.
 - `nontrainability.py`
 
   - This file sets the API for marking certain arrays/modules as "frozen"
-    (sidenote: "static" is a loaded term in the `jax` ecosystem:
+  - Sidenote: "static" is a loaded term in the `jax` ecosystem, hence the term
+    frozen:
     [gh-comment-1](https://github.com/patrick-kidger/equinox/issues/798#issuecomment-2284687593),
-    [gh-comment-2](https://github.com/patrick-kidger/equinox/issues/1095#issuecomment-3309828519))
+    [gh-comment-2](https://github.com/patrick-kidger/equinox/issues/1095#issuecomment-3309828519),
+    [gh-discussion](https://github.com/jax-ml/jax/discussions/13913)
+
+    - Marking an attribute as a metadata field (e.g., with
+      `eqx.field(static=True)` or with
+      `jax.tree_util.register_dataclass(..., meta_fields=...)` absorbs the
+      attribute into the pytreedef. The attribute will be ignored in vmap, grad,
+      jit, etc. `vmap` and `grad`: One can't vmap over or take gradient wrt
+      metadata fields. `jit`: Equality of the attribute is checked every time a
+      jitted function is called (which could affect performance). If an array is
+      marked as a metadata field, things seem to work okay as long as a given
+      jitted function is only called with the same value for the metadata field.
+      When it is called with a different value, jax raises an error (which is
+      good) and recommends against setting arrays as metadata fields.
+    - Indicating that an array is static via jit's `static_argnums` or
+      `static_argnames` will fail outright (again, good), due to
+      non-hashability.
+    - One correct way to handle non-trainable parameters is to take them out of
+      the first argument to loss (so, jit.grad and optax ignore them
+      completely). Additionally, it is more efficient to close over
+      non-trainable params for jitting purposes (and ensure that the jitted
+      function is not public).
+    - There are of course, genuine use-cases for static fields, e.g.,
+      [gh-comment](https://github.com/patrick-kidger/equinox/issues/154#issuecomment-1198505287).
 
 - `loss.py`
 

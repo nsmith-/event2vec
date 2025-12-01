@@ -1,12 +1,10 @@
 __all__ = ["FreezableModule", "NonTrainableModule", "FrozenNumpyArray"]
 
-from typing import TYPE_CHECKING, Any, Self, final
+from typing import Any, Self, final
 
 import equinox as eqx
 import numpy as np
-
-if TYPE_CHECKING:
-    from jaxtyping import PyTree
+from jaxtyping import PyTree
 
 
 class FreezableModule(eqx.Module):
@@ -47,6 +45,10 @@ class FrozenNumpyArray(np.ndarray):
     """
     This is a dummy subclass of a `numpy.ndarray`, used simply to **tag**
     an array as frozen for training purposes.
+
+    This is a better alternative to using `eqx.field(static=True)`, which can
+    have unindended consequences while vmapping, jitting, etc. The frozen-tag
+    approach has a much narrower scope.
 
     Subclassing `jax.Array` isn't officially supported, so... good thing
     jax plays well with numpy arrays!
