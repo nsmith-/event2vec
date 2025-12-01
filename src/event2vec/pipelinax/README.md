@@ -37,27 +37,47 @@ can be built on top of this submodule.
     computing the loss (including the `model.__call__(data)` logic) can be
     inside the loss function. Abstract (model, datacontent, loss) combinations
     move some computations from losses into models.
-  - This file defines a base loss implementation that handles the vmapping of
+  - This file provides a base loss implementation that handles the vmapping of
     loss functions defined on datapoints to work with datasets. It should cover
     most use-cases.
 
+- `metric.py`
+
+  - Metrics can return numeric objects as well as histograms, images, figures,
+    etc.
+  - This file will provide a base metric implementation for handling vmapping,
+    and combinee jittable and non-jittable portions of the computation
+
 - `training_and_evaluation.py`
+
   - Implements performing training steps and computing evaluation metrics.
   - Makes sure that frozen model components and meta/constant data attributes
     are closed over and not traced over in jit.
   - Handles shuffling datapoints, batching them, etc.
   - This file is a layer that separates the files listed above from the
     experiment trackers, visualizers, etc., to improve maintainability. It
-    should provide (just) enough functionality to support downstream tasks.
+    should provide (just) enough functionality to support `simple_run.py`.
 
-## Parts outside `pipelinax`:
+- `run_experiment.py`
 
-- `{experiment, visualization, logging, tracking, callbacks}`
-  - This is the open-ended world of model builders, config objects, progress
-    bars, histograms, experiment trackers and loggers, callbacks, etc.
+  - Implements a train function that (i) runs a training loop with a progress
+    bar, (ii) computes evaluation metrics, and (iii) optionally logs metrics
+    into a tracker, if provided.
+  - Low priority: implement callback hooks
+  - Low priority: Support for multistage experiments? Freeze/unfreeze model
+    components, learn psd and then a summary vector, etc.
+
+- `experiment_tracking.py`
+  - Provides an experiment tracker API or a plugin to external tool.
   - It might make sense to plug into an existing open-source tool, say from this
     [list](https://github.com/awesome-mlops/awesome-ml-experiment-management)?
     [Aim](https://github.com/aimhubio/aim) is open-source, limits itself to
     experiment tracking, and can track
-    [metrics, distributions, images, etc.](https://aimstack.readthedocs.io/en/latest/quick_start/supported_types.html)
+    [metrics, distributions, images, figures, etc.](https://aimstack.readthedocs.io/en/latest/quick_start/supported_types.html)
+
+## Parts outside `pipelinax`:
+
+- Less abstract trackers, loggers, visualization metrics, callbacks, etc. This
+  is the open-ended world of model builders, config objects, histograms,
+  callbacks, etc.
 - Less abstract models, losses, datacontents.

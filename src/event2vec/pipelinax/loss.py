@@ -79,6 +79,9 @@ class VmappedLoss[ModelT: Model, DataContentT: DataContent](Loss[ModelT, DataCon
             post_process_key,
         ) = jax.random.split(key, len(dataset) + 2)
 
+        # jax.vmap has unexpected behavior with kwargs (maps over the leading
+        # axis, regardless of in_axes). eqx.filter_vmap doesn't support kwargs:
+        # https://github.com/patrick-kidger/equinox/issues/405#issuecomment-1616061423
         def _elemwise_loss_fn(datapoint_variable, elemwise_key):  # type: ignore[no-untyped-def]
             datapoint = eqx.combine(datapoint_meta_and_constant, datapoint_variable)
 
