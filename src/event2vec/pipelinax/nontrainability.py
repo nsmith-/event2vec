@@ -1,6 +1,6 @@
 __all__ = ["FreezableModule", "NonTrainableModule", "FrozenNumpyArray"]
 
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, Any, Self, final
 
 import equinox as eqx
 import numpy as np
@@ -57,7 +57,7 @@ class FrozenNumpyArray(np.ndarray):
     Non-guarantees:
     1. Operations involving FrozenNumpyArray objects are not guaranteed to
        return outputs that are themselves tagged as frozen.
-    2. `FrozenNumpyArray` objects, like regular `numpy.ndarrays` are mutable
+    2. `FrozenNumpyArray` objects, like regular `numpy.ndarrays` are mutable.
        (the "writeable" flag can be turned back on). Furthermore, even the
        immutability of frozen dataclasses (like `equinox.Module` instances),
        which contain the `FrozenNumpyArray` objects is only emulated.
@@ -107,10 +107,12 @@ class FrozenNumpyArray(np.ndarray):
     ```
     """
 
-    def __new__(cls, value: np.typing.ArrayLike, /):
-        arr = np.array(value, copy=True)
-        arr.flags.writeable = False
-        return arr.view(FrozenNumpyArray)
+    def __new__(cls, value: np.typing.ArrayLike, /) -> Self:
+        return np.array(value, copy=True).view(FrozenNumpyArray)
+
+    def __array_finalize__(self: Self, obj: Any) -> None:
+        # The "writeable" flag being off should not be relied upon anywhere.
+        self.flags.writeable = False
 
 
 def is_marked_frozen(node: PyTree) -> bool:

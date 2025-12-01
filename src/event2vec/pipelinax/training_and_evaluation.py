@@ -1,7 +1,6 @@
 # TODO: Implement EvaluationCore for computing metrics
 # TODO: Improve shuffling, epoch_generator (make it an Iterator class with
 #       a __len__ method for progress bars' benefit).
-# TODO: Low priority: Add support for callback_hooks.
 
 
 from typing import TYPE_CHECKING, final
@@ -41,8 +40,10 @@ class TrainingCore[ModelT: Model, DataContentT: DataContent]:
             initial_model
         )
 
-        @eqx.filter_value_and_grad
-        def loss_grad_fn(model_trainable, databatch_variable, key) -> Float[Array, ""]:
+        # jax autodiff doesn't support kwargs
+        def wrapped_loss_fn(
+            model_trainable, databatch_variable, key
+        ) -> Float[Array, ""]:
             model: ModelT = eqx.combine(model_trainable, model_frozen)
 
             databatch: DataSet[DataContentT] = eqx.combine(
@@ -51,6 +52,10 @@ class TrainingCore[ModelT: Model, DataContentT: DataContent]:
 
             return loss_fn(model=model, dataset=databatch, key=key, mode="training")
 
+        loss_grad_fn = jax.value_and_grad(wrapped_loss_fn)
+
+        # Using filter_ for the sake of opt_state. All other arguments
+        # are guaranteed to only contain array (or NoneType) leaves.
         @eqx.filter_jit
         def train_step_aux(
             *,
@@ -117,6 +122,7 @@ class TrainingCore[ModelT: Model, DataContentT: DataContent]:
             self._train_step_aux(
                 model_trainable=self._current_model_trainable,
                 databatch_variable=databatch_variable,
+                opt_state=self._current_optimizer_state,
                 key=key,
             )
         )
