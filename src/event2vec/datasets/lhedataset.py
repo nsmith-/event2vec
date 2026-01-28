@@ -135,7 +135,13 @@ def _decode_weight_name(name: str, expected_wcs: list[str]) -> list[float]:
         return coefs
     parts = name.split("_")
     for wc, val in zip(parts[0::2], parts[1::2]):
-        idx = expected_wcs.index(wc)
+        try:
+            idx = expected_wcs.index(wc)
+        except ValueError:
+            msg = (
+                f"Unexpected Wilson coefficient name '{wc}' in LHE weight name '{name}'"
+            )
+            raise ValueError(msg)
         coefs[idx] = float(val.replace("m", "-").replace("p", "."))
     return coefs
 
@@ -165,7 +171,7 @@ def _extract_scaling_coefficients(
     weights = jnp.array([event_weights[name] / gen_weights for name in weight_names])
     coeffs, residuals, rank, _ = jnp.linalg.lstsq(points_quad, weights, rcond=None)
     print(
-        f"LHE weight fit (rank {rank}) residuals mean: {jnp.mean(residuals)} std: {jnp.std(residuals)}"
+        f"LHE weight fit (rank {rank}, {len(weight_names)} weights) residuals mean: {jnp.mean(residuals)} std: {jnp.std(residuals)}"
     )
     return coeffs.T
 
