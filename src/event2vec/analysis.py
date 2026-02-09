@@ -47,6 +47,7 @@ def plot_lr_mean(
     ax: Axes,
     llr_pred: jax.Array,
     llr_true: jax.Array,
+    weight0: jax.Array,
     bins: int = 20,
     qthreshold: float = 0.01,
 ):
@@ -54,27 +55,39 @@ def plot_lr_mean(
 
     If the predicted likelihood ratio is perfect, the mean should lie on the y=x line and the std should be zero.
     In any case, the mean of the true likelihood ratio should be close to the predicted likelihood ratio.
+
+    Args:
+        ax: The matplotlib Axes to plot on.
+        llr_pred: The predicted log-likelihood ratio phat(x;theta1)/phat(x;theta0) for each event.
+        llr_true: The true log-likelihood ratio p(x,z;theta1)/p(x,z;theta0) for each event.
+        weight0: The weights of the event sample under theta0, to handle the case the events are not sampled from p(x;theta0).
+        bins: The number of quantile bins to use.
+        qthreshold: The quantile threshold to exclude extreme outliers in the predicted likelihood ratio.
     """
     lr_pred = jnp.exp(llr_pred)
     lr_true = jnp.exp(llr_true)
 
     qbins = jnp.quantile(lr_pred, jnp.linspace(qthreshold, 1 - qthreshold, bins + 1))
 
-    sumc, _ = jnp.histogram(lr_pred, bins=qbins)
-    sumw, _ = jnp.histogram(lr_pred, bins=qbins, weights=lr_true)
-    sumw2, _ = jnp.histogram(lr_pred, bins=qbins, weights=lr_true**2)
+    sumw, _ = jnp.histogram(lr_pred, bins=qbins, weights=weight0)
+    sumwlr, _ = jnp.histogram(lr_pred, bins=qbins, weights=weight0 * lr_true)
+    mean = sumwlr / sumw
 
-    mean = sumw / sumc
-    std = jnp.sqrt(sumw2 / sumc - (sumw / sumc) ** 2)
+    # https://en.wikipedia.org/wiki/Weighted_arithmetic_mean#Variance_of_the_weighted_mean_(%CF%80-estimator_for_ratio-mean)
+    sumw2lr2, _ = jnp.histogram(lr_pred, bins=qbins, weights=weight0**2 * lr_true**2)
+    sumw2lr, _ = jnp.histogram(lr_pred, bins=qbins, weights=weight0**2 * lr_true)
+    sumw2, _ = jnp.histogram(lr_pred, bins=qbins, weights=weight0**2)
+    # weight0**2 * (lr_true - mean)**2
+    # = weight0**2 * lr_true**2 - 2 * weight0**2 * lr_true * mean + weight0**2 * mean**2
+    err_mean = jnp.sqrt(sumw2lr2 - 2 * sumw2lr * mean + sumw2 * mean**2) / sumw
+
+    # Put x center in barycenter of bin
+    sumxw, _ = jnp.histogram(lr_pred, bins=qbins, weights=weight0 * lr_pred)
+    xcenter = sumxw / sumw
+    xerr = jnp.stack([xcenter - qbins[:-1], qbins[1:] - xcenter], axis=0)
 
     ax.errorbar(
-        0.5 * (qbins[1:] + qbins[:-1]),
-        mean,
-        xerr=0.5 * (qbins[1:] - qbins[:-1]),
-        yerr=std,
-        fmt="o",
-        markersize=5,
-        capsize=3,
+        xcenter, mean, xerr=xerr, yerr=err_mean, fmt="o", markersize=5, capsize=3
     )
     lo, hi = qbins[0], qbins[-1]
     ax.plot([lo, hi], [lo, hi], color="grey", linestyle="--")
@@ -192,7 +205,7 @@ def study_point_analysis(
 
     fig, (axl, axr) = plt.subplots(1, 2, figsize=(10, 5))
     plot_llr_distribution(axl, llr_pred, llr_true)
-    plot_lr_mean(axr, llr_pred, llr_true)
+    plot_lr_mean(axr, llr_pred, llr_true, weight0)
     fig.savefig(output_dir / "llr_summary.png")
     plt.close(fig)
 
