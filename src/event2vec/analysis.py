@@ -81,14 +81,13 @@ def plot_lr_mean(
     # = weight0**2 * lr_true**2 - 2 * weight0**2 * lr_true * mean + weight0**2 * mean**2
     err_mean = jnp.sqrt(sumw2lr2 - 2 * sumw2lr * mean + sumw2 * mean**2) / sumw
 
+    # Put x center in barycenter of bin
+    sumxw, _ = jnp.histogram(lr_pred, bins=qbins, weights=weight0 * lr_pred)
+    xcenter = sumxw / sumw
+    xerr = jnp.stack([xcenter - qbins[:-1], qbins[1:] - xcenter], axis=0)
+
     ax.errorbar(
-        0.5 * (qbins[1:] + qbins[:-1]),
-        mean,
-        xerr=0.5 * (qbins[1:] - qbins[:-1]),
-        yerr=err_mean,
-        fmt="o",
-        markersize=5,
-        capsize=3,
+        xcenter, mean, xerr=xerr, yerr=err_mean, fmt="o", markersize=5, capsize=3
     )
     lo, hi = qbins[0], qbins[-1]
     ax.plot([lo, hi], [lo, hi], color="grey", linestyle="--")
