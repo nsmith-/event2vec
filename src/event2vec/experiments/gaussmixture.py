@@ -44,7 +44,7 @@ class GaussianMixture(ExperimentConfig):
         parser.add_argument(
             "--epochs",
             type=int,
-            default=1_000,
+            default=150,
             help="Number of training epochs. (default: %(default)s)",
         )
         parser.add_argument(

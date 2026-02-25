@@ -36,8 +36,8 @@
 ## Gaussian mixture example experiment:
 
 ```sh
-e2vrun -o gauss GaussianMixture
+e2vrun -o runs/gauss GaussianMixture
 ```
 
-This will create an experiment directory `gauss/` with training logs, model
+This will create an experiment directory `runs/gauss/` with training logs, model
 checkpoints, and analysis plots.

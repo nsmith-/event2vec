@@ -6,3 +6,4 @@ notebook/*.pdf
 notebook/*.png
 .DS_Store
 .vscode/
+runs/
