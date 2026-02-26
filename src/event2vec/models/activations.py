@@ -9,10 +9,13 @@ from event2vec.nontrainable import FreezableModule
 
 
 class ExpAffineLogistic(FreezableModule):
-    """Returns the following elementwise function
-        output(x) = exp( (log_max - log_min) * logistic(x) + log_min )
-                  = exp( log_max * logistic(x) + log_min * logistic(-x))
-    where logistic(x) = 1/(1 + exp(-x)).
+    r"""Returns the following elementwise function
+
+    .. math::
+        a(x) &= \exp( (l_{\text{max}} - l_{\text{min}}) \cdot \sigma(x) + l_{\text{min}} ) \\
+             &= \exp(l_{\text{max}} \cdot \sigma(x) + l_{\text{min}} \cdot \sigma(-x))
+
+    where :math:`\sigma(x) = \frac{1}{1 + \exp(-x)}` is the logistic function.
     """
 
     is_static: bool = dataclasses.field(default=True, init=False)
@@ -20,7 +23,9 @@ class ExpAffineLogistic(FreezableModule):
     _: KW_ONLY
 
     log_min: Float[Array, "#N"]
+    r"""Minimum value of the output, in log space, :math:`l_{\text{min}}`."""
     log_max: Float[Array, "#N"]
+    r"""Maximum value of the output, in log space, :math:`l_{\text{max}}`."""
     copy: InitVar[bool] = True  # type: ignore[assignment]
 
     def __post_init__(self, copy):

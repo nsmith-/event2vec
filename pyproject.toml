@@ -36,16 +36,23 @@ dependencies = [
 [project.scripts]
 e2vrun = "event2vec.cli:main"
 
-[project.optional-dependencies]
-test = ["pytest >=6"]
-
 [project.urls]
 Homepage = "https://github.com/nsmith-/event2vec"
 "Bug Tracker" = "https://github.com/nsmith-/event2vec/issues"
 Changelog = "https://github.com/nsmith-/event2vec/releases"
 
 [dependency-groups]
-dev = ["pre-commit>=4.4.0"]
+dev = [
+  "pre-commit>=4.4.0",
+  "pytest >=6",
+]
+docs = [
+  "furo",
+  "myst_parser >=0.13",
+  "sphinx >=4.0",
+  "sphinx-copybutton",
+  "sphinx-autodoc-typehints",
+]
 
 [tool.hatch]
 version.source = "vcs"
@@ -70,7 +77,6 @@ ignore = [
 ]
 
 [tool.mypy]
-python_version = "3.12"
 files = "src"
 
 [[tool.mypy.overrides]]
