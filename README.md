@@ -40,4 +40,10 @@ e2vrun -o runs/gauss GaussianMixture
 ```
 
 This will create an experiment directory `runs/gauss/` with training logs, model
-checkpoints, and analysis plots.
+checkpoints, and analysis plots. It runs in a few minutes on one CPU.
+
+To run with binwise loss, use
+
+```sh
+e2vrun -o runs/gauss_bin GaussianMixture --loss bce --binwise --summary-dim 3
+```
