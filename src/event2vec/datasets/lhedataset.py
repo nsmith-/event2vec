@@ -192,8 +192,9 @@ class VBFHDataset(QuadraticReweightableDataset):
     latent_data: jax.Array
     r"""The event weight coefficients, shape (num_events, num_coeffs)
 
-    This is $\frac{\theta^T A(z) \theta}{\theta_g^T A(z) \theta_g}$ where $A(z)$ is the matrix of coefficients for event z,
-    and $\theta_g$ are the generation parameters.
+    This is :math:`\frac{\theta^\top A(z) \theta}{\theta_g^\top A(z) \theta_g}`
+    where :math:`A(z)` is the matrix of coefficients for event z,
+    and :math:`\theta_g` are the generation parameters.
     """
     normalization: QuadraticFormNormalization
     """The normalization of the events"""

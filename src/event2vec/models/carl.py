@@ -52,12 +52,13 @@ class CARLQuadLLR(AbstractLLR):
 
 
 class CARLPSDMatrixLLR(AbstractPSDMatrixLLR):
-    r"""SBI model which predicts a variable-rank quadratic form for the log-likelihood ratio dependence on the parameters.
+    r"""SBI model which predicts a low-rank quadratic form for the log-likelihood ratio dependence on the parameters.
 
     This is taking advantage of the expected structure of the event weight:
-    $w=\theta^\top A \theta$, where A is a positive semi-definite matrix, and can therefore be decomposed as
-    $A = B B^\top$, where B may be generally of rank less than the dimension of $\theta$.
-    Then $w = | B^\top \theta |^2$.
+    :math:`w=\theta^\top A \theta`, where A is a positive semi-definite matrix,
+    and can therefore be decomposed as :math:`A = B B^\top`, where B may be
+    generally of rank less than the dimension of :math:`\theta`.
+    Then :math:`w=| B^\top \theta |^2`.
 
     TODO: this is overlapping with PSDMatrixLLR using the At_A_Model; consider merging these two classes.
     """

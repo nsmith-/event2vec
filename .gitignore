@@ -7,3 +7,4 @@ notebook/*.png
 .DS_Store
 .vscode/
 runs/
+docs/_build/

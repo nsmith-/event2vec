@@ -1,5 +1,7 @@
 # event2vec
 
+<!-- SPHINX-START -->
+
 ## Contributor quick start
 
 1. Clone repo and enter project dir:

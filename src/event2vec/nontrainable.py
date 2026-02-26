@@ -87,10 +87,11 @@ class QuadraticFormNormalization(Normalization):
     sqrtcoef: jax.Array
     r"""Square root matrix of the form, shape (p, p) where p is the parameter dimension.
 
-    $B$ such that $B B^T = A$, and $\theta^T A theta$ is the quadratic form).
-    Stored as the eigendecomposition square root (i.e. for $A = U D U^T$, then $B = U sqrt(D)$).
-    TODO: should this be Cholesky or other decomposition instead?
-    """
+    :math:`B` such that :math:`B B^\top = A`, and :math:`\theta^\top A \theta`
+    is the quadratic form).  Stored as the eigendecomposition square root (i.e.
+    for :math:`A = U D U^\top`, then :math:`B = U \sqrt{D}`).
+
+    TODO: should this be Cholesky or other decomposition instead?  """
 
     def __call__(self, params: ParamVec) -> jax.Array:
         """Return normalization for given parameters (scalar)."""

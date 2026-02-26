@@ -16,10 +16,12 @@ class VecDotLLR(AbstractLLR):
     r"""A model that predicts a latent vector representation for both the observables and parameters.
 
     The resulting log-likelihood ratio is computed as the dot product of these two vectors:
-    $$ \hat{\ell}(x, \theta_0, \theta_1) = s(x) \cdot (\pi(\theta_1) - \pi(\theta_0)) $$
 
-    The event summary model $s(x)$ maps observables, and the parameter projection
-    model $\pi(\theta)$ maps parameters.
+    .. math::
+        \hat{\ell}(x, \theta_0, \theta_1) = s(x) \cdot (\pi(\theta_1) - \pi(\theta_0))
+
+    The event summary model :math:`s(x)` maps observables, and the parameter projection
+    model :math:`\pi(\theta)` maps parameters.
 
     If this model is trained with a BinwiseLoss, then the event summary regresses to bin probabilities,
     and the parameter projection regresses to bin average log-likelihood ratios.
