@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
@@ -10,6 +11,7 @@ from matplotlib.axes import Axes
 from event2vec.dataset import ReweightableDataset
 from event2vec.model import AbstractLLR
 from event2vec.models.vecdot import VecDotLLR
+from event2vec.shapes import ParamVec
 from event2vec.training import MetricsHistory
 from event2vec.util import standard_pbar
 
@@ -271,3 +273,112 @@ def run_analysis(
                     output_dir=p0dir / f"num_{p1name}",
                 )
                 progress.advance(analysis_task)
+
+
+def score_closure(
+    model: AbstractLLR,
+    data: ReweightableDataset,
+    param_ref: ParamVec,
+    output_dir: Path | None = None,
+    batch_size: int = 65536,
+) -> dict[str, jax.Array]:
+    r"""Compare the learned score with the exact score at a reference point, per parameter component.
+
+    The score :math:`t(x) = \nabla_\theta \log p(x|\theta)` at :math:`\theta_{ref}` is the
+    sufficient statistic for a measurement near the reference point. The learned score is
+    :math:`\nabla_{\theta_1} \hat\ell(x, \theta_{ref}, \theta_1)` at :math:`\theta_1 = \theta_{ref}`;
+    the exact one is the gradient of the log event weight, which equals the score of the observables
+    when they determine the weight (no unobserved latent variables), as for generator-level samples.
+
+    Per component, the Fisher information carried by the learned score (after linear calibration)
+    is :math:`\mathrm{cov}(\hat t, t)^2 / \mathrm{var}(\hat t)`, and the exact information is
+    :math:`\mathrm{var}(t)`, so their ratio is the squared weighted correlation. Expectations are
+    taken with the event weights at the reference point.
+
+    Args:
+        model: The trained model.
+        data: Dataset with exact event weights.
+        param_ref: The reference parameter point.
+        output_dir: If given, a ``score_closure.png`` scatter plot is written there.
+        batch_size: Events per call when evaluating the model.
+
+    Returns:
+        Dictionary of per-component arrays: ``score_corr``, ``information_retained``
+        (learned / exact Fisher information), ``fisher_exact`` and ``fisher_learned`` (per event),
+        ``sigma_exact`` and ``sigma_learned`` (expected uncertainty per event, i.e. divide by
+        :math:`\sqrt{N}`). Components without exact information are NaN.
+    """
+    n = len(data)
+    weight = data.weight(param_ref)
+    weight = weight / jnp.sum(weight)
+
+    def log_weight_sum(params):
+        return jnp.sum(jnp.log(data.weight(params)))
+
+    score_exact = jax.grad(log_weight_sum)(
+        jnp.broadcast_to(param_ref, (n, len(param_ref)))
+    )
+
+    @eqx.filter_jit
+    def learned_score(m, observables):
+        def per_event(x):
+            return jax.grad(lambda p1: m.llr_pred(x, param_ref, p1))(param_ref)
+
+        return jax.vmap(per_event)(observables)
+
+    score_learned = jnp.concatenate(
+        [
+            learned_score(model, data.observables[i : i + batch_size])
+            for i in range(0, n, batch_size)
+        ]
+    )
+
+    def weighted_cov(a, b):
+        return jnp.sum(weight[:, None] * (a - weight @ a) * (b - weight @ b), axis=0)
+
+    var_exact = weighted_cov(score_exact, score_exact)
+    var_learned = weighted_cov(score_learned, score_learned)
+    cov = weighted_cov(score_learned, score_exact)
+    # components with no exact information (e.g. a fixed SM normalisation) only carry rounding noise
+    informative = var_exact > 1e-6 * jnp.max(var_exact)
+    safe = jnp.where(informative & (var_learned > 0), var_learned * var_exact, 1.0)
+    corr = jnp.where(informative, cov / jnp.sqrt(safe), jnp.nan)
+    fisher_learned = jnp.where(
+        informative, cov**2 / jnp.where(var_learned > 0, var_learned, 1.0), jnp.nan
+    )
+    fisher_exact = jnp.where(informative, var_exact, jnp.nan)
+
+    if output_dir is not None:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        components = [int(i) for i in jnp.flatnonzero(informative)]
+        fig, axes = plt.subplots(
+            ncols=max(len(components), 1),
+            figsize=(5 * max(len(components), 1), 5),
+            squeeze=False,
+        )
+        for ax, i in zip(axes[0], components):
+            lim = jnp.quantile(score_exact[:, i], jnp.array([0.002, 0.998]))
+            ax.hist2d(
+                score_exact[:, i],
+                score_learned[:, i],
+                bins=80,
+                range=[lim, lim],
+                weights=weight,
+                cmin=1e-12,
+            )
+            ax.plot(lim, lim, color="grey", linestyle="--")
+            ax.set_xlabel(f"Exact score, parameter {i}")
+            ax.set_ylabel("Learned score")
+            ax.set_title(f"corr {corr[i]:.3f}, information retained {corr[i] ** 2:.3f}")
+        fig.tight_layout()
+        fig.savefig(output_dir / "score_closure.png")
+        plt.close(fig)
+
+    return {
+        "score_corr": corr,
+        "information_retained": fisher_learned / fisher_exact,
+        "fisher_exact": fisher_exact,
+        "fisher_learned": fisher_learned,
+        "sigma_exact": 1 / jnp.sqrt(fisher_exact),
+        "sigma_learned": 1 / jnp.sqrt(fisher_learned),
+    }
