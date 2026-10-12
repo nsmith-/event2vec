@@ -73,6 +73,26 @@ class SMPlusNormalParameterPrior(ParameterPrior):
         )
 
 
+class SMPlusUniformParameterPrior(ParameterPrior):
+    """A prior that fixes the first parameter (the SM parameter) to 1 and samples the rest uniformly."""
+
+    low: jax.Array
+    "lower bounds for all parameters except the first"
+    high: jax.Array
+    "upper bounds for all parameters except the first"
+
+    def sample(self, key: PRNGKeyArray) -> jax.Array:
+        return (
+            jnp.ones(shape=(len(self.low) + 1,))
+            .at[1:]
+            .set(
+                jax.random.uniform(
+                    key, self.low.shape, minval=self.low, maxval=self.high
+                )
+            )
+        )
+
+
 class UncorrelatedJointPrior(JointParameterPrior):
     """A joint prior that samples two independent parameters from the same prior."""
 
