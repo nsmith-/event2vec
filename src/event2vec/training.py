@@ -41,6 +41,9 @@ class TrainingConfig[ModelT: AbstractLLR, DatasetT: ReweightableDataset]:
     """Number of epochs to train for."""
     loss_fn: Loss[ModelT, DatasetT]
     """Loss function to use for training."""
+    patience: int | None = None
+    """Early stopping: stop when the validation loss has not improved for this many epochs,
+    and return the model with the best validation loss."""
 
     @property
     def test_fraction(self) -> float:
@@ -56,6 +59,10 @@ class TrainingConfig[ModelT: AbstractLLR, DatasetT: ReweightableDataset]:
         if not (0.0 < self.val_fraction < 1.0):
             raise ValueError(
                 f"val_fraction must be between 0 and 1, got {self.val_fraction}"
+            )
+        if self.patience is not None and self.patience < 1:
+            raise ValueError(
+                f"patience must be a positive integer, got {self.patience}"
             )
         if not (0.0 < self.test_fraction < 1.0):
             raise ValueError(
@@ -111,6 +118,7 @@ def train[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
 
     train_loss_history: list[float] = []
     val_loss_history: list[float] = []
+    best_model, best_val_loss, epochs_since_best = model, float("inf"), 0
     pbar = standard_pbar(TextColumn("Val loss: {task.fields[loss]:.4f}"))
     with pbar as progress:
         epoch_task = progress.add_task("Training...", total=config.epochs, loss=0.0)
@@ -130,5 +138,14 @@ def train[ModelT: AbstractLLR, DatasetT: ReweightableDataset](
             ).item()
             val_loss_history.append(val_loss)
             progress.update(epoch_task, advance=1, loss=val_loss)
+            if config.patience is not None:
+                if val_loss < best_val_loss:
+                    best_model, best_val_loss, epochs_since_best = model, val_loss, 0
+                else:
+                    epochs_since_best += 1
+                    if epochs_since_best >= config.patience:
+                        break
 
+    if config.patience is not None:
+        model = best_model
     return model, train_loss_history, val_loss_history
