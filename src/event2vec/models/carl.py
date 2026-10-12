@@ -69,13 +69,25 @@ class CARLPSDMatrixLLR(AbstractPSDMatrixLLR):
     """Overall normalization (non-trainable)"""
     rank: int
     "Rank of the learned quadratic form (to reshape model output)"
+    floor: float = 0.0
+    r"""Floor added to the normalized quadratic form before the logarithm, :math:`\log(w + \text{floor})`.
+
+    The score of the model, :math:`\nabla_\theta \log w`, diverges where the learned form
+    vanishes, which at initialization it nearly does for a large fraction of events. A small
+    floor like 1e-3 bounds the score  when the model is trained with a score-matching term from 
+    event2vec.loss.BinarySampledParamLoss. 0 leaves the model unchanged.
+    """
 
     def llr_pred(self, observables, param_0, param_1):
         coef = self.model(observables).reshape(-1, self.rank)
         pc1 = param_1 @ coef
         pc0 = param_0 @ coef
-        llr_num = jnp.log(jnp.vecdot(pc1, pc1) / self.normalization(param_1))
-        llr_den = jnp.log(jnp.vecdot(pc0, pc0) / self.normalization(param_0))
+        llr_num = jnp.log(
+            jnp.vecdot(pc1, pc1) / self.normalization(param_1) + self.floor
+        )
+        llr_den = jnp.log(
+            jnp.vecdot(pc0, pc0) / self.normalization(param_0) + self.floor
+        )
         return llr_num - llr_den
 
     def psd_matrix(self, observables: ParamVec) -> PSDMatrix:
@@ -95,6 +107,8 @@ class CARLQuadraticFormMLPConfig:
     """Rank of the quadratic form predicted by the model."""
     standard_scaler: bool
     """Whether to standard scale the event observables."""
+    floor: float = 0.0
+    """Floor of the learned ratio, see :attr:`CARLPSDMatrixLLR.floor`."""
 
     def build(
         self, key: PRNGKeyArray, training_data: QuadraticReweightableDataset
@@ -118,6 +132,7 @@ class CARLQuadraticFormMLPConfig:
             model=model,
             normalization=training_data.normalization,
             rank=self.rank,
+            floor=self.floor,
         )
 
 
