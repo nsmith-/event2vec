@@ -74,7 +74,7 @@ class CARLPSDMatrixLLR(AbstractPSDMatrixLLR):
 
     The score of the model, :math:`\nabla_\theta \log w`, diverges where the learned form
     vanishes, which at initialization it nearly does for a large fraction of events. A small
-    floor like 1e-3 bounds the score  when the model is trained with a score-matching term from 
+    floor like 1e-3 bounds the score when the model is trained with a score-matching term from
     event2vec.loss.BinarySampledParamLoss. 0 leaves the model unchanged.
     """
 
