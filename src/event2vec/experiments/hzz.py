@@ -16,7 +16,11 @@ from event2vec.loss import BCELoss, BinarySampledParamLoss
 from event2vec.losses.psd_matrix_losses import FrobeniusNormLoss
 from event2vec.models.carl import CARLMLPConfig, CARLQuadraticFormMLPConfig
 from event2vec.models.vecdot import E2VMLPConfig
-from event2vec.prior import SMPlusUniformParameterPrior, UncorrelatedJointPrior
+from event2vec.prior import (
+    FixedDenominatorJointPrior,
+    SMPlusUniformParameterPrior,
+    UncorrelatedJointPrior,
+)
 from event2vec.training import TrainingConfig
 
 
@@ -83,6 +87,13 @@ class HZZ(ExperimentConfig):
             type=float,
             default=1.0,
             help="The coupling is sampled uniformly in [-box, box] during training. (default: %(default)s)",
+        )
+        parser.add_argument(
+            "--denominator",
+            choices=["sampled", "sm"],
+            default="sampled",
+            help="sampled: both points of each training pair are sampled; "
+            "sm: the denominator is fixed at the SM and only the numerator sampled. (default: %(default)s)",
         )
         parser.add_argument(
             "--floor",
@@ -191,8 +202,15 @@ class HZZ(ExperimentConfig):
             prior = SMPlusUniformParameterPrior(
                 low=jnp.array([-args.box]), high=jnp.array([args.box])
             )
+            joint_prior: UncorrelatedJointPrior | FixedDenominatorJointPrior
+            if args.denominator == "sm":
+                joint_prior = FixedDenominatorJointPrior(
+                    denominator=jnp.array([1.0, 0.0]), numerator_prior=prior
+                )
+            else:
+                joint_prior = UncorrelatedJointPrior(prior)
             loss_fn = BinarySampledParamLoss(
-                parameter_prior=UncorrelatedJointPrior(prior),
+                parameter_prior=joint_prior,
                 continuous_labels=True,
                 elementwise_loss=BCELoss(),
                 score_weight=args.alpha if args.loss == "alices" else 0.0,

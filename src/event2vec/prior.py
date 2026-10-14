@@ -101,3 +101,15 @@ class UncorrelatedJointPrior(JointParameterPrior):
     def sample(self, key: PRNGKeyArray) -> tuple[jax.Array, jax.Array]:
         key1, key2 = jax.random.split(key)
         return self.prior.sample(key1), self.prior.sample(key2)
+
+
+class FixedDenominatorJointPrior(JointParameterPrior):
+    """A joint prior whose denominator is always the same point (e.g. the SM) and whose numerator
+    is sampled, i.e. the model learns the ratio to a fixed reference hypothesis."""
+
+    denominator: jax.Array
+    "the fixed denominator parameter vector"
+    numerator_prior: ParameterPrior
+
+    def sample(self, key: PRNGKeyArray) -> tuple[jax.Array, jax.Array]:
+        return self.denominator, self.numerator_prior.sample(key)
