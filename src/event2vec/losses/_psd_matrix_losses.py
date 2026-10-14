@@ -25,9 +25,10 @@ class PSDMatrixLoss(eqx.Module):
         pred_matrices = jax.vmap(model.psd_matrix)(data.observables)
         label_matrices = tril_to_matrix(data.quadratic_form)
 
-        return (
-            jax.vmap(self._per_datapoint_loss)(pred_matrices, label_matrices)
-        ).mean()
+        loss = jax.vmap(self._per_datapoint_loss)(pred_matrices, label_matrices)
+        # the weight at the generation point is 1 for unweighted samples
+        sample_weight = data.weight(data.gen_parameters)
+        return (loss * sample_weight).mean() / sample_weight.mean()
 
     @abstractmethod
     def _per_datapoint_loss(
@@ -58,7 +59,9 @@ class PSDMatrixLoss_DiagOnly(eqx.Module):
 
             label_diags = label_diags.at[..., i].set(tmp)
 
-        return (jax.vmap(self._per_datapoint_loss)(pred_diags, label_diags)).mean()
+        loss = jax.vmap(self._per_datapoint_loss)(pred_diags, label_diags)
+        sample_weight = data.weight(data.gen_parameters)
+        return (loss * sample_weight).mean() / sample_weight.mean()
 
     @abstractmethod
     def _per_datapoint_loss(

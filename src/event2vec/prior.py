@@ -73,6 +73,26 @@ class SMPlusNormalParameterPrior(ParameterPrior):
         )
 
 
+class SMPlusUniformParameterPrior(ParameterPrior):
+    """A prior that fixes the first parameter (the SM parameter) to 1 and samples the rest uniformly."""
+
+    low: jax.Array
+    "lower bounds for all parameters except the first"
+    high: jax.Array
+    "upper bounds for all parameters except the first"
+
+    def sample(self, key: PRNGKeyArray) -> jax.Array:
+        return (
+            jnp.ones(shape=(len(self.low) + 1,))
+            .at[1:]
+            .set(
+                jax.random.uniform(
+                    key, self.low.shape, minval=self.low, maxval=self.high
+                )
+            )
+        )
+
+
 class UncorrelatedJointPrior(JointParameterPrior):
     """A joint prior that samples two independent parameters from the same prior."""
 
@@ -81,3 +101,15 @@ class UncorrelatedJointPrior(JointParameterPrior):
     def sample(self, key: PRNGKeyArray) -> tuple[jax.Array, jax.Array]:
         key1, key2 = jax.random.split(key)
         return self.prior.sample(key1), self.prior.sample(key2)
+
+
+class FixedDenominatorJointPrior(JointParameterPrior):
+    """A joint prior whose denominator is always the same point (e.g. the SM) and whose numerator
+    is sampled, i.e. the model learns the ratio to a fixed reference hypothesis."""
+
+    denominator: jax.Array
+    "the fixed denominator parameter vector"
+    numerator_prior: ParameterPrior
+
+    def sample(self, key: PRNGKeyArray) -> tuple[jax.Array, jax.Array]:
+        return self.denominator, self.numerator_prior.sample(key)

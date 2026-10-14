@@ -63,8 +63,14 @@ class ElementwiseLoss(eqx.Module):
 
 
 class BinarySampledParamLoss(LLRLoss):
-    """Samples a pair of parameters from a given prior for each event in the dataset
-    and computes a binary classification loss based on the model's predicted log-likelihood ratio.
+    r"""Sample a pair of parameters from a given prior for each event in the dataset
+    and compute a binary classification loss based on the model's predicted log-likelihood ratio.
+
+    With continuous labels and the BCE elementwise loss this is ALICE. With a positive
+    ``score_weight`` it becomes ALICES. :math:`\partial \hat\ell / \partial \theta_1`
+    and :math:`-\partial \hat\ell / \partial \theta_0` are additionally regressed on the exact
+    joint score :math:`\nabla_\theta \log w(x, z | \theta)` at the two sampled points, obtained
+    from the dataset's likelihood by automatic differentiation.
     """
 
     parameter_prior: JointParameterPrior
@@ -72,6 +78,13 @@ class BinarySampledParamLoss(LLRLoss):
     continuous_labels: bool
     """Whether to use continuous labels (i.e. regression) instead of binary labels (i.e. classification)."""
     elementwise_loss: ElementwiseLoss
+    score_weight: float = 0.0
+    r"""Weight :math:`\alpha` of the score-matching term (ALICES); 0 disables it.
+
+    When the labels sit near 0.5 (e.g. a rate-neutral interference and a symmetric prior) the
+    cross-entropy gradient is much smaller than the score-term gradient, so values of order 1 let
+    the score term dominate; 0.1 or smaller is proabbly safer.
+    """
 
     def __call__(
         self, model: AbstractLLR, data: ReweightableDataset, *, key: PRNGKeyArray
@@ -100,7 +113,43 @@ class BinarySampledParamLoss(LLRLoss):
             sample_weight = jnp.where(target_label == 0, weight_param_0, weight_param_1)
 
         loss = self.elementwise_loss(llr_pred, target_label)
-        return (loss * sample_weight).mean() / sample_weight.mean()
+        loss = (loss * sample_weight).mean() / sample_weight.mean()
+        if self.score_weight > 0:
+            loss = loss + self.score_weight * self._score_matching(
+                model, data, param_0, param_1, weight_param_0, weight_param_1
+            )
+        return loss
+
+    @staticmethod
+    def _score_matching(
+        model: AbstractLLR,
+        data: ReweightableDataset,
+        param_0: Float[Array, "batch P"],
+        param_1: Float[Array, "batch P"],
+        weight_param_0: Float[Array, " batch"],
+        weight_param_1: Float[Array, " batch"],
+    ) -> jax.Array:
+        """Mean squared difference between the model's and the exact score at both sampled points,
+        each weighted by the event weight at that point (i.e. evaluated under its distribution)."""
+
+        def log_weight_sum(params: Float[Array, "batch P"]) -> jax.Array:
+            # event i depends only on row i, so the gradient is the per-event score
+            return jnp.sum(jnp.log(data.weight(params)))
+
+        score_0 = jax.grad(log_weight_sum)(param_0)  # shape: (batch, P)
+        score_1 = jax.grad(log_weight_sum)(param_1)
+        score_pred_1 = jax.vmap(jax.grad(model.llr_pred, argnums=2))(
+            data.observables, param_0, param_1
+        )
+        score_pred_0 = -jax.vmap(jax.grad(model.llr_pred, argnums=1))(
+            data.observables, param_0, param_1
+        )
+        sq_0 = jnp.sum((score_pred_0 - score_0) ** 2, axis=1)
+        sq_1 = jnp.sum((score_pred_1 - score_1) ** 2, axis=1)
+        return 0.5 * (
+            (sq_0 * weight_param_0).mean() / weight_param_0.mean()
+            + (sq_1 * weight_param_1).mean() / weight_param_1.mean()
+        )
 
 
 class BinarySampledParamBinwiseLoss(BinwiseLoss):
